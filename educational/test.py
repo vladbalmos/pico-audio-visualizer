@@ -7,41 +7,28 @@ import numpy as np
 import pyaudio
 import wave
 import screen
+from collections import deque
 
 MAX_AMPLITUDE = 100
 ANIMATION_FRAMERATE = 60
-FFT_SAMPLING_RATE = int(math.floor(ANIMATION_FRAMERATE / 2))
+FFT_SAMPLING_RATE = 25
 
 fft_queue = queue.Queue()
 stop_event = threading.Event()
 
 # Define new frequency bands
 frequency_bands = [
-    (20, 60),     # Sub-Bass
-    (60, 250),    # Bass
-    (250, 500),   # Low Midrange
-    (500, 1000),  # Midrange
-    (1000, 2000), # Upper Midrange
-    (2000, 4000), # Presence
-    (4000, 6000), # Brilliance
-    (6000, 10000),# Upper Brilliance
-    (10000, 16000),# Highs
-    (16000, 20000) # Ultra Highs
+    (1, 32),
+    (32, 62),
+    (62, 125),
+    (125, 250),
+    (250, 500),
+    (500, 1000),
+    (1000, 2000),
+    (2000, 4000),
+    (4000, 8000),
+    (8000, 16000)
 ]
-
-frequency_bands = [
-    (20, 60),     # Sub-Bass
-    (60, 100),    # Bass
-    (100, 200),   # Low Midrange
-    (200, 250),  # Midrange
-    (250, 500), # Upper Midrange
-    (500, 1000), # Presence
-    (1000, 1500), # Brilliance
-    (1500, 2000),# Upper Brilliance
-    (3000, 4000),# Highs
-    (4000, 20000) # Ultra Highs
-]
-
 
 def next_divisible_by_32(n):
     remainder = n % 32
@@ -99,7 +86,7 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
 
 def audio_worker():
     # Path to the WAV file
-    wav_file_path = 'sample.wav'
+    wav_file_path = 'sample3.wav'
     # wav_file_path = 'snuff.wav'
 
     # Open the WAV file
@@ -145,6 +132,9 @@ thread = threading.Thread(target=audio_worker)
 thread.start()
 
 def get_level(max_amp):
+    if max_amp < 0:
+        return -1
+
     if max_amp < 10:
         return 0
     
@@ -168,35 +158,71 @@ def get_level(max_amp):
     
     return 7
 
-last_called = 0
-threshold = 1 / FFT_SAMPLING_RATE
-def rasterize(queue):
-    global last_called
+last_fft = 0
+threshold = math.floor(1000 / FFT_SAMPLING_RATE) - 1
+
+frames = deque()
+
+last_values = None
+def rasterize():
+    global last_fft, last_values
 
     now = time.time()
-    diff = now - last_called
+    diff = math.floor((now - last_fft) * 1000)
+    values = None
     
-    if diff < threshold:
-        return
+    if diff >= threshold:
+        last_fft = now
+        pixel_rows = []
+        try:
+            values = fft_queue.get(block=True, timeout=0.5)
+        except:
+            print("No more audio. Exiting!")
+            sys.exit(0)
 
-    last_called = now
-    try:
-        values = fft_queue.get(block=True, timeout=0.5)
-    except:
-        print("No more audio. Exiting!")
-        sys.exit(0)
-
-    # strs = []
-    # for i, max_amp in enumerate(values):
-    #     strs.append(f"({frequency_bands[i][0]:.2f}-{frequency_bands[i][1]:.2f} Hz) = {max_amp}")
-    # print('; '.join(strs))
+        for i, max_amp in enumerate(values):
+            level = get_level(max_amp)
+            try:
+                prev_level = get_level(last_values[i])
+            except:
+                prev_level = -1
+                
+                
+            for j in range(0, prev_level):
+                # first frame
+                pass
+                
+            # two more frames, one till half the `diff_levels` and the next up until `level`
+            # if `diff_levels` is negative double the frames
+            diff_levels = level - prev_level
+            
+            for j in range(screen.LED_ROWS):
+                if level == -1 or j > level:
+                    pixel_rows.append(False)
+                    continue
+                
+                pixel_rows.append(True)
+                
+            pixels.append(pixel_rows)
+        
+        last_values = values
     
+    if values == None:
+        pass
+
     pixels = []
+    index = 0
     for max_amp in values:
         pixel_rows = []
-        for j in range(screen.LED_ROWS):
-            level = get_level(max_amp)
+        level = get_level(max_amp)
+        try:
+            prev_level = get_level(last_values[index])
+        except:
+            prev_level = -1
+        
+        index += 1
 
+        for j in range(screen.LED_ROWS):
             if level == -1 or j > level:
                 pixel_rows.append(False)
                 continue
@@ -204,8 +230,10 @@ def rasterize(queue):
             pixel_rows.append(True)
             
         pixels.append(pixel_rows)
+    
+    last_values = values
 
-    queue.append(pixels)
+    return pixels
 
 try:
     screen.mainloop(rasterize)

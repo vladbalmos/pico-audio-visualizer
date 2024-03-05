@@ -84,7 +84,7 @@ def init(animation_framerate):
         x += Led.WIDTH + 2 * Led.SPACING_HORIZONTAL
         y = bottom_left[1]
         
-def mainloop(callback):
+def mainloop(rasterize_fn):
     # Main game loop
     running = True
     last_run = 0
@@ -98,11 +98,9 @@ def mainloop(callback):
             if event.type == pygame.QUIT:
                 running = False
 
-        callback(raster_queue)
+        pixels = rasterize_fn()
         
-        try:
-            pixels = raster_queue.popleft()
-        except:
+        if not pixels:
             clock.tick(framerate)
             continue
             
