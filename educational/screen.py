@@ -33,9 +33,8 @@ class Led():
         self.visible = visible
         
     def render(self):
-        if not self.visible:
-            return
-        pygame.draw.rect(screen, self.color, (self.x, self.y, Led.WIDTH, Led.HEIGHT))
+        color = self.color if self.visible else black
+        pygame.draw.rect(screen, color, (self.x, self.y, Led.WIDTH, Led.HEIGHT))
             
 
 def init(animation_framerate):
@@ -88,6 +87,7 @@ def mainloop(rasterize_fn):
     # Main game loop
     running = True
     last_run = 0
+    pixels_queue = deque()
     while running:
         now = time.time()
         # print((now - last_run) * 1000)
@@ -97,15 +97,17 @@ def mainloop(rasterize_fn):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                
+        rasterize_fn(pixels_queue)
 
-        pixels = rasterize_fn()
-        
-        if not pixels:
+        try:
+            pixels = pixels_queue.pop()
+        except IndexError:
             clock.tick(framerate)
             continue
             
         # Clear the screen
-        screen.fill(black)
+        # screen.fill(black)
 
         # Draw the leds
         for i in range(0, LED_COLS):

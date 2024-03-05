@@ -1,4 +1,5 @@
 import sys
+import pprint
 import math
 import threading
 import queue
@@ -11,10 +12,11 @@ from collections import deque
 
 MAX_AMPLITUDE = 100
 ANIMATION_FRAMERATE = 60
-FFT_SAMPLING_RATE = 25
+FFT_SAMPLING_RATE = 60
 
 fft_queue = queue.Queue()
 stop_event = threading.Event()
+pixels_queue = deque()
 
 # Define new frequency bands
 frequency_bands = [
@@ -158,13 +160,78 @@ def get_level(max_amp):
     
     return 7
 
+
+def new_frame(pixel_value = 0):
+    frame = [pixel_value] * screen.LED_ROWS
+    return frame
+    
+def set_pixels(start, end, state, dst = None):
+    if dst == None:
+        dst = []
+    for i in range(start, end + 1):
+        dst[i] = state
+    
+    return dst
+
+def rasterize_column_up(last_value, value, max_frames_count):
+    frames = []
+
+    diff = value - last_value
+    
+    # frames_count = min(max(diff, 1), max_frames_count)
+    frames_count = max_frames_count
+    
+    pixels_per_frame = int(math.ceil(diff / frames_count))
+    
+    start = last_value + 1
+    end = last_value + pixels_per_frame
+    for _ in range(0, frames_count):
+        frame = new_frame()
+        set_pixels(0, last_value, 1, frame)
+
+        if end > 7:
+            end = 7
+
+        set_pixels(start, end, 1, frame)
+        end += pixels_per_frame
+            
+        frames.append(frame)
+        
+    return frames
+
+def rasterize_column_down(last_value, value, max_frames_count):
+    frames = []
+    
+    diff = last_value - value
+
+    # frames_count = min(max(diff, 1), max_frames_count)
+    frames_count = max_frames_count
+
+    pixels_per_frame = int(math.ceil(diff / frames_count))
+    
+    end = last_value - pixels_per_frame
+    for _ in range(0, frames_count):
+        frame = new_frame()
+        set_pixels(0, value, 1, frame)
+        set_pixels(value + 1, end, 1, frame)
+        
+        end -= pixels_per_frame
+        
+        frames.append(frame)
+        
+    return frames
+
+def rasterize_column(level, prev_level, max_frames_up, max_frames_down):
+    if level >= prev_level:
+        return rasterize_column_up(prev_level, level, max_frames_up)
+    
+    return rasterize_column_down(prev_level, level, max_frames_down)
+        
 last_fft = 0
 threshold = math.floor(1000 / FFT_SAMPLING_RATE) - 1
 
-frames = deque()
-
 last_values = None
-def rasterize():
+def rasterize(frames_queue):
     global last_fft, last_values
 
     now = time.time()
@@ -173,68 +240,35 @@ def rasterize():
     
     if diff >= threshold:
         last_fft = now
-        pixel_rows = []
         try:
             values = fft_queue.get(block=True, timeout=0.5)
         except:
             print("No more audio. Exiting!")
             sys.exit(0)
 
+
+         
+        pixels_columns = []
         for i, max_amp in enumerate(values):
             level = get_level(max_amp)
             try:
                 prev_level = get_level(last_values[i])
             except:
                 prev_level = -1
-                
-                
-            for j in range(0, prev_level):
-                # first frame
-                pass
-                
-            # two more frames, one till half the `diff_levels` and the next up until `level`
-            # if `diff_levels` is negative double the frames
-            diff_levels = level - prev_level
             
-            for j in range(screen.LED_ROWS):
-                if level == -1 or j > level:
-                    pixel_rows.append(False)
-                    continue
-                
-                pixel_rows.append(True)
-                
-            pixels.append(pixel_rows)
+            frames = rasterize_column(level, prev_level, 4, 4)
+            pixels_columns.append(frames)
+            
+        for i in range(0, 4):
+            pixels = []
+            for j in range(0, 10):
+                pixels.append(pixels_columns[j][i])
+            frames_queue.appendleft(pixels)
         
+
         last_values = values
     
-    if values == None:
-        pass
-
-    pixels = []
-    index = 0
-    for max_amp in values:
-        pixel_rows = []
-        level = get_level(max_amp)
-        try:
-            prev_level = get_level(last_values[index])
-        except:
-            prev_level = -1
-        
-        index += 1
-
-        for j in range(screen.LED_ROWS):
-            if level == -1 or j > level:
-                pixel_rows.append(False)
-                continue
-            
-            pixel_rows.append(True)
-            
-        pixels.append(pixel_rows)
     
-    last_values = values
-
-    return pixels
-
 try:
     screen.mainloop(rasterize)
 finally:
