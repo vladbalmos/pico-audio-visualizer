@@ -57,6 +57,7 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
 
     start = 0
     end = slice_size
+    epsilon = 1e-10
 
     while True:
         frames = np_data[start:end]
@@ -68,26 +69,56 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
 
         fft_result = np.fft.fft(np_data)
         fft_freqs = np.fft.fftfreq(len(fft_result), 1.0 / audio_framerate)
-
-        # Keep only the positive half of the spectrum
-        positive_freqs = fft_freqs[:len(fft_freqs)//2]
-        positive_amplitudes = np.abs(fft_result)[:len(fft_result)//2] / len(np_data)
-
-        max_amplitude = np.max(positive_amplitudes)
-        scale_factor = MAX_AMPLITUDE / max_amplitude if max_amplitude != 0 else 0
-        normalized_amplitudes = positive_amplitudes * scale_factor
-
-        # Initialize bin maxima
+    
         bin_maxima = np.zeros(len(frequency_bands))
 
-        # Assign each FFT result to a bin and find the max amplitude
         for i, (low, high) in enumerate(frequency_bands):
-            bin_indices = np.where((positive_freqs >= low) & (positive_freqs < high))[0]
-            if bin_indices.size > 0:
-                # bin_maxima[i] = np.max(positive_amplitudes[bin_indices])
-                bin_maxima[i] = int(math.ceil(np.max(normalized_amplitudes[bin_indices])))
+            bin_indices = np.where((fft_freqs > low & (fft_freqs <= high)))[0]
+            
+            if bin_indices.size == 0:
+                bin_maxima[i] = -np.inf
+                continue
 
-        fft_queue.put(bin_maxima)
+            amplitudes = np.abs(fft_result[bin_indices])
+
+            max_amplitude = max(np.max(amplitudes), epsilon)
+            loudness_db = 20 * np.log10((amplitudes + epsilon) / max_amplitude)
+            max_loudness = np.max(loudness_db)
+            print(low, high, max_loudness)
+            bin_maxima[i] = -np.inf
+
+
+
+    # while True:
+    #     frames = np_data[start:end]
+        
+    #     # frames = np_data[0:end]
+    #     # if len(frames) == 0 or end >= len(np_data):
+    #     if len(frames) == 0:
+    #         break
+
+    #     fft_result = np.fft.fft(np_data)
+    #     fft_freqs = np.fft.fftfreq(len(fft_result), 1.0 / audio_framerate)
+
+    #     # Keep only the positive half of the spectrum
+    #     positive_freqs = fft_freqs[:len(fft_freqs)//2]
+    #     positive_amplitudes = np.abs(fft_result)[:len(fft_result)//2] / len(np_data)
+
+    #     max_amplitude = np.max(positive_amplitudes)
+    #     scale_factor = MAX_AMPLITUDE / max_amplitude if max_amplitude != 0 else 0
+    #     normalized_amplitudes = positive_amplitudes * scale_factor
+
+    #     # Initialize bin maxima
+    #     bin_maxima = np.zeros(len(frequency_bands))
+
+    #     # Assign each FFT result to a bin and find the max amplitude
+    #     for i, (low, high) in enumerate(frequency_bands):
+    #         bin_indices = np.where((positive_freqs >= low) & (positive_freqs < high))[0]
+    #         if bin_indices.size > 0:
+    #             # bin_maxima[i] = np.max(positive_amplitudes[bin_indices])
+    #             bin_maxima[i] = int(math.ceil(np.max(normalized_amplitudes[bin_indices])))
+
+    #     fft_queue.put(bin_maxima)
 
         
         # print(start, end, len(np_data))
