@@ -39,6 +39,9 @@ def next_divisible_by_32(n):
     else:
         return int(n + (32 - remainder))
 
+    
+last_frames = []
+
 def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channels):
     if sample_width == 2:
         _dtype = np.int16
@@ -57,6 +60,9 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
 
     while True:
         frames = np_data[start:end]
+        
+        # frames = np_data[0:end]
+        # if len(frames) == 0 or end >= len(np_data):
         if len(frames) == 0:
             break
 
@@ -66,6 +72,7 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
         # Keep only the positive half of the spectrum
         positive_freqs = fft_freqs[:len(fft_freqs)//2]
         positive_amplitudes = np.abs(fft_result)[:len(fft_result)//2] / len(np_data)
+
         max_amplitude = np.max(positive_amplitudes)
         scale_factor = MAX_AMPLITUDE / max_amplitude if max_amplitude != 0 else 0
         normalized_amplitudes = positive_amplitudes * scale_factor
@@ -83,6 +90,7 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
         fft_queue.put(bin_maxima)
 
         
+        # print(start, end, len(np_data))
         start = end
         end += slice_size
 
@@ -173,64 +181,17 @@ def set_pixels(start, end, state, dst = None):
     
     return dst
 
-def rasterize_column_up(last_value, value, max_frames_count):
-    frames = []
+def level_to_pixels(level):
+    frame = new_frame()
+    if level < 0:
+        return frame
 
-    diff = value - last_value
-    
-    # frames_count = min(max(diff, 1), max_frames_count)
-    frames_count = max_frames_count
-    
-    pixels_per_frame = int(math.ceil(diff / frames_count))
-    
-    start = last_value + 1
-    end = last_value + pixels_per_frame
-    for _ in range(0, frames_count):
-        frame = new_frame()
-        set_pixels(0, last_value, 1, frame)
-
-        if end > 7:
-            end = 7
-
-        set_pixels(start, end, 1, frame)
-        end += pixels_per_frame
-            
-        frames.append(frame)
-        
-    return frames
-
-def rasterize_column_down(last_value, value, max_frames_count):
-    frames = []
-    
-    diff = last_value - value
-
-    # frames_count = min(max(diff, 1), max_frames_count)
-    frames_count = max_frames_count
-
-    pixels_per_frame = int(math.ceil(diff / frames_count))
-    
-    end = last_value - pixels_per_frame
-    for _ in range(0, frames_count):
-        frame = new_frame()
-        set_pixels(0, value, 1, frame)
-        set_pixels(value + 1, end, 1, frame)
-        
-        end -= pixels_per_frame
-        
-        frames.append(frame)
-        
-    return frames
-
-def rasterize_column(level, prev_level, max_frames_up, max_frames_down):
-    if level >= prev_level:
-        return rasterize_column_up(prev_level, level, max_frames_up)
-    
-    return rasterize_column_down(prev_level, level, max_frames_down)
+    set_pixels(0, level, 1, frame)
+    return frame
         
 last_fft = 0
 threshold = math.floor(1000 / FFT_SAMPLING_RATE) - 1
 
-last_values = None
 def rasterize(frames_queue):
     global last_fft, last_values
 
@@ -246,27 +207,13 @@ def rasterize(frames_queue):
             print("No more audio. Exiting!")
             sys.exit(0)
 
-
          
-        pixels_columns = []
+        pixels = []
         for i, max_amp in enumerate(values):
             level = get_level(max_amp)
-            try:
-                prev_level = get_level(last_values[i])
-            except:
-                prev_level = -1
+            pixels.append(level_to_pixels(level))
             
-            frames = rasterize_column(level, prev_level, 4, 4)
-            pixels_columns.append(frames)
-            
-        for i in range(0, 4):
-            pixels = []
-            for j in range(0, 10):
-                pixels.append(pixels_columns[j][i])
-            frames_queue.appendleft(pixels)
-        
-
-        last_values = values
+        frames_queue.appendleft(pixels)
     
     
 try:
