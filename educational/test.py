@@ -20,18 +20,17 @@ pixels_queue = deque()
 
 # Define new frequency bands
 frequency_bands = [
-    (1, 32),
-    (32, 62),
-    (62, 125),
-    (125, 250),
-    (250, 500),
-    (500, 1000),
-    (1000, 2000),
-    (2000, 4000),
-    (4000, 8000),
-    (8000, 16000)
+    (1, 32, [], [-60]),
+    (32, 62, [], [-60]),
+    (62, 125, [], [-60]),
+    (125, 250, [], [-60]),
+    (250, 500, [], [-60]),
+    (500, 1000, [], [-60]),
+    (1000, 2000, [], [-60]),
+    (2000, 4000, [], [-60]),
+    (4000, 8000, [], [-60]),
+    (8000, 16000, [], [-60])
 ]
-
 def next_divisible_by_32(n):
     remainder = n % 32
     if remainder == 0:
@@ -41,6 +40,7 @@ def next_divisible_by_32(n):
 
     
 last_frames = []
+alpha = 0.4
 
 def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channels):
     if sample_width == 2:
@@ -61,6 +61,7 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
 
     while True:
         frames = np_data[start:end]
+        # TODO: analyze window of current - 100ms in time
         
         # frames = np_data[0:end]
         # if len(frames) == 0 or end >= len(np_data):
@@ -72,63 +73,46 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
     
         bin_maxima = np.zeros(len(frequency_bands))
 
-        for i, (low, high) in enumerate(frequency_bands):
-            bin_indices = np.where((fft_freqs > low & (fft_freqs <= high)))[0]
+        for i, (low, high, max_amplitudes, ema) in enumerate(frequency_bands):
+            bin_indices = np.where((fft_freqs >= low) & (fft_freqs < high))[0]
             
             if bin_indices.size == 0:
                 bin_maxima[i] = -np.inf
                 continue
 
+            # print(low, high, bin_indices)
             amplitudes = np.abs(fft_result[bin_indices])
 
-            max_amplitude = max(np.max(amplitudes), epsilon)
-            loudness_db = 20 * np.log10((amplitudes + epsilon) / max_amplitude)
+            max_band_amplitude = max(np.max(amplitudes), epsilon)
+            max_amplitudes.append(max_band_amplitude)
+            if len(max_amplitudes) > 500:
+                max_amplitudes.pop(0)
+                
+            max_amplitude = np.max(max_amplitudes)
+
+            loudness_db = 20 * np.log10((amplitudes + epsilon) / (max_amplitude + epsilon))
             max_loudness = np.max(loudness_db)
-            print(low, high, max_loudness)
-            bin_maxima[i] = -np.inf
-
-
-
-    # while True:
-    #     frames = np_data[start:end]
-        
-    #     # frames = np_data[0:end]
-    #     # if len(frames) == 0 or end >= len(np_data):
-    #     if len(frames) == 0:
-    #         break
-
-    #     fft_result = np.fft.fft(np_data)
-    #     fft_freqs = np.fft.fftfreq(len(fft_result), 1.0 / audio_framerate)
-
-    #     # Keep only the positive half of the spectrum
-    #     positive_freqs = fft_freqs[:len(fft_freqs)//2]
-    #     positive_amplitudes = np.abs(fft_result)[:len(fft_result)//2] / len(np_data)
-
-    #     max_amplitude = np.max(positive_amplitudes)
-    #     scale_factor = MAX_AMPLITUDE / max_amplitude if max_amplitude != 0 else 0
-    #     normalized_amplitudes = positive_amplitudes * scale_factor
-
-    #     # Initialize bin maxima
-    #     bin_maxima = np.zeros(len(frequency_bands))
-
-    #     # Assign each FFT result to a bin and find the max amplitude
-    #     for i, (low, high) in enumerate(frequency_bands):
-    #         bin_indices = np.where((positive_freqs >= low) & (positive_freqs < high))[0]
-    #         if bin_indices.size > 0:
-    #             # bin_maxima[i] = np.max(positive_amplitudes[bin_indices])
-    #             bin_maxima[i] = int(math.ceil(np.max(normalized_amplitudes[bin_indices])))
-
-    #     fft_queue.put(bin_maxima)
-
-        
-        # print(start, end, len(np_data))
+            ema1 = ema[0]
+            ema[0] = (max_loudness * alpha) + (ema[0] * (1 - alpha))
+            
+            # diff = abs(ema[0] - ema1)
+            # if diff < 3:
+            #     ema[0] = math.ceil(ema[0] + ema1) / 2
+            bin_maxima[i] = ema[0]
+            
+        # print(bin_maxima)
+        fft_queue.put(bin_maxima)
         start = end
         end += slice_size
 
 def audio_worker():
     # Path to the WAV file
-    wav_file_path = 'sample3.wav'
+    try:
+        wav_file_path = sys.argv[1]
+    except:
+        wav_file_path = 'sample.wav'
     # wav_file_path = 'snuff.wav'
+    print(sys.argv)
 
     # Open the WAV file
     wf = wave.open(wav_file_path, 'rb')
@@ -173,32 +157,31 @@ thread = threading.Thread(target=audio_worker)
 thread.start()
 
 def get_level(max_amp):
-    if max_amp < 0:
-        return -1
-
-    if max_amp < 10:
-        return 0
+    if max_amp >= -1.5:
+        return 7
     
-    if max_amp >= 10 and max_amp < 20:
-        return 1
-    
-    if max_amp >= 20 and max_amp < 30:
-        return 2
-    
-    if max_amp >= 30 and max_amp < 40:
-        return 3
-    
-    if max_amp >= 40 and max_amp < 50:
-        return 4
-    
-    if max_amp >= 50 and max_amp < 60:
-        return 5
-    
-    if max_amp >= 60 and max_amp < 80:
+    if max_amp >= -3:
         return 6
     
-    return 7
-
+    if max_amp >= -6:
+        return 5
+    
+    if max_amp >= -9:
+        return 4
+    
+    if max_amp >= -12:
+        return 3
+    
+    if max_amp >= -15:
+        return 2
+    
+    if max_amp >= -18:
+        return 1
+    
+    if max_amp >= -30:
+        return 0
+    
+    return -1
 
 def new_frame(pixel_value = 0):
     frame = [pixel_value] * screen.LED_ROWS

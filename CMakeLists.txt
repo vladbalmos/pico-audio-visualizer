@@ -15,6 +15,7 @@ add_compile_options(-Wall
         )
 
 add_executable(visualiser
+    renderer.c
     visualiser.c
 )
 

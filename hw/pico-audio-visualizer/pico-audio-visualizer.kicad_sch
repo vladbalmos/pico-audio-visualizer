@@ -1,0 +1,21 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 4be94ab1-241d-45c9-8238-5fd8e8222ffb)
+
+  (paper "A4")
+
+  (title_block
+    (title "RPico LED Audio Visualizer")
+    (date "2024-03-08")
+    (rev "1.0.0")
+    (company "Vlad Balmos")
+  )
+
+  (lib_symbols
+  )
+
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)
