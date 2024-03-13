@@ -1,32 +1,8 @@
-/**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "kissfft/kiss_fft.h"
 #include "renderer.h"
-
-// typedef struct {
-//     int8_t last_led;
-//     uint8_t max_led;
-// } led_col_t;
-
-
-// bool repeating_timer_callback(repeating_timer_t *rt) {
-//     led_col_t *lct = (led_col_t *) rt->user_data;
-    
-//     if (lct->last_led++ >= lct->max_led) {
-//         return false;
-//     }
-    
-//     gpio_put(led_pins[lct->last_led], 1);
-//     return true;
-// }
-
 
 int main() {
     const uint LED_PIN = CYW43_WL_GPIO_LED_PIN;
