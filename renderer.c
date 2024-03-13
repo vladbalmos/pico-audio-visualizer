@@ -32,6 +32,7 @@ repeating_timer_t mux_timer;
 
 uint8_t demo_fps;
 repeating_timer_t demo_timer;
+demo_timer_data_t demo_timer_data = {NULL};
 
 int8_t last_selected_led_col = -1;
 uint8_t led_row_index = 0;
@@ -102,6 +103,20 @@ bool toggle_leds(repeating_timer_t *timer) {
     return true;
 }
 
+bool render_demo_states(repeating_timer_t *timer) {
+    demo_timer_data_t *data = (demo_timer_data_t *) timer->user_data;
+    
+    if (data->index >= (data->size - 1)) {
+        data->is_running = 0;
+        return false;
+    }
+    
+    renderer_update_state(&data->states[data->index]);
+
+    data->index += data->slice_size;
+    return true;
+}
+
 void renderer_init(int64_t mux_delay_us) {
     renderer_mux_delay_us = mux_delay_us;
 
@@ -132,6 +147,7 @@ void renderer_update_state(const uint8_t *state_per_col) {
     for (uint8_t i = 0; i < LED_COLS_COUNT; i++) {
         // Holds the number of LEDs that must be light up for the current column
         uint8_t state = state_per_col[i];
+        // printf("%d ", state);
         
         for (uint8_t j = 0; j < LED_PINS_COUNT; j++) {
             if (j < state) {
@@ -141,43 +157,87 @@ void renderer_update_state(const uint8_t *state_per_col) {
             }
         }
     }
+    // printf("\n-------------\n");
 }
 
 void renderer_start() {
     if (!add_repeating_timer_us(renderer_mux_delay_us, toggle_leds, NULL, &mux_timer)) {
-        panic("Unable to start MUX timer");
+        panic("Unable to start MUX timer\n");
     }
 }
 
-void renderer_start_demo(uint8_t fps) {
-    // 1 animation per bar + extra where all bars move at the same time
-    int total_animations = LED_COLS_COUNT + 1;
-    // light up LEDs from -1 to 7 and back to 0
-    int states_per_animation = LED_PINS_COUNT * 2 + 1;
+void renderer_demo_start(uint8_t fps) {
+    renderer_demo_stop();
+    // 1 animation per bar + three extra where all bars move at the same time
+    uint16_t total_animations = LED_COLS_COUNT + 3;
+    // light up LEDs from 0 to 8 and back to 1
+    uint16_t states_per_animation = LED_PINS_COUNT * 2;
     int elements_per_state = LED_COLS_COUNT;
     
-    size_t animation_size = total_animations * states_per_animation * elements_per_state;
+    size_t animation_size = (total_animations * states_per_animation * elements_per_state) + elements_per_state;
     uint8_t *animation_states = malloc(animation_size);
+    uint8_t *mutable_states = animation_states;
+    uint8_t led_state = 0;
+    uint16_t elements_count = 0;
     
     // Generate animations states
     // Animate each band
-    // for (uint8_t i = 0; i < LED_COLS_COUNT; i++) {
-    //     for (uint8_t j = 0; j < LED_PINS_COUNT; j++) {
-            
-    //     }
-    //     animation_states++ = 0;
-    //     animation_states++ = 0;
-    //     animation_states++ = 0;
-    // }
-    // Animate all bands at the same time
+    for (uint8_t i = 0; i < total_animations; i++) {
+        // Generate each state
+        for (uint8_t j = 0; j < states_per_animation; j++) {
+            if (j <= LED_PINS_COUNT) {
+                led_state = j;
+            } else {
+                led_state = states_per_animation - j;
+            }
+
+            for (uint8_t k = 0; k < elements_per_state; k++) {
+                if (k == i || i >= LED_COLS_COUNT) {
+                    *mutable_states++ = led_state;
+                } else {
+                    *mutable_states++ = 0;
+                }
+                elements_count++;
+            }
+        }
+    }
+    // Turn off after all animations
+    *mutable_states++ = 0;
+    *mutable_states++ = 0;
+    *mutable_states++ = 0;
+    elements_count += 3;
+    
+    int64_t demo_delay_us = 1000000 / fps;
+    demo_timer_data.states = animation_states;
+    demo_timer_data.size = animation_size;
+    demo_timer_data.slice_size = elements_per_state;
+    demo_timer_data.index = 0;
+    demo_timer_data.is_running = 1;
+    
+    printf("Starting demo timer with %lldus delay\n", demo_delay_us / 1000);
+
+    if (!add_repeating_timer_us(demo_delay_us, render_demo_states, &demo_timer_data, &demo_timer)) {
+        panic("Unable to start DEMO timer\n");
+    }
 }
 
-void renderer_stop_demo() {
-    
+uint8_t renderer_demo_is_running() {
+    return demo_timer_data.is_running;
+}
+
+void renderer_demo_stop() {
+    printf("Stopping demo\n");
+    cancel_repeating_timer(&demo_timer);
+    if (demo_timer_data.states != NULL) {
+        free(demo_timer_data.states);
+        demo_timer_data.states = NULL;
+        demo_timer_data.size = 0;
+        demo_timer_data.slice_size = 0;
+        demo_timer_data.index = 0;
+        demo_timer_data.is_running = 0;
+    }
 }
 
 void renderer_stop() {
-    if (!cancel_repeating_timer(&mux_timer)) {
-        panic("Unable to cancel MUX timer");
-    }
+    cancel_repeating_timer(&mux_timer);
 }

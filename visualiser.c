@@ -30,7 +30,7 @@
 
 int main() {
     const uint LED_PIN = CYW43_WL_GPIO_LED_PIN;
-    uint8_t leds_state[] = {0, 0, 0};
+    const uint8_t leds_state[] = {0, 0, 0};
 
     stdio_init_all();
     if (cyw43_arch_init()) {
@@ -43,35 +43,16 @@ int main() {
     renderer_update_state(leds_state);
     renderer_start();
     
-    int8_t dir = 1;
-    int8_t state = 0;
+    renderer_demo_start(60);
     
     while (true) {
-        // cyw43_arch_gpio_put(LED_PIN, 1);
-        // sleep_ms(100);
-        // cyw43_arch_gpio_put(LED_PIN, 0);
-        leds_state[0] = state;
-        leds_state[1] = state;
-        leds_state[2] = state;
+        cyw43_arch_gpio_put(LED_PIN, 1);
+        sleep_ms(100);
+        cyw43_arch_gpio_put(LED_PIN, 0);
+        sleep_ms(100);
         
-        if (dir == 1) {
-            state++;
-        } else {
-            state--;
+        if (!renderer_demo_is_running()) {
+            renderer_demo_start(60);
         }
-        
-        if (state < 0) {
-            state = 0;
-            dir = 1;
-        }
-        
-        if (state == 9) {
-            state = 8;
-            dir = -1;
-        }
-        // printf("%d %d %d\n", leds_state[0], leds_state[1], leds_state[2]);
-
-        renderer_update_state(leds_state);
-        sleep_ms(16);
     }
 }

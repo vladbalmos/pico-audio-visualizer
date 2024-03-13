@@ -40,7 +40,7 @@ def next_divisible_by_32(n):
 
     
 last_frames = []
-alpha = 0.4
+alpha = 0.45
 
 def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channels):
     if sample_width == 2:
