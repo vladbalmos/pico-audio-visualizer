@@ -15,6 +15,7 @@ add_compile_options(-Wall
         )
 
 add_executable(visualiser
+    fft_engine.c
     renderer.c
     visualiser.c
 )
@@ -27,6 +28,7 @@ pico_enable_stdio_uart(visualiser 1)
 target_link_libraries(visualiser
     pico_stdlib
     pico_cyw43_arch_none
+    pico_multicore
     hardware_adc
     )
 

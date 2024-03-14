@@ -1,8 +1,22 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
+#include "pico/util/queue.h"
 #include "pico/cyw43_arch.h"
-#include "kissfft/kiss_fft.h"
+// #include "kissfft/kiss_fft.h"
 #include "renderer.h"
+#include "fft_engine.h"
+
+#define FREQ_LEVELS_Q_MAX_ELEMENTS 16
+
+queue_t freq_levels_q;
+
+void core1_main() {
+    fft_engine_init(&freq_levels_q);
+    while (true) {
+        __wfe();
+    }
+}
 
 int main() {
     const uint LED_PIN = CYW43_WL_GPIO_LED_PIN;
@@ -19,8 +33,16 @@ int main() {
     renderer_update_state(leds_state);
     renderer_start();
     
-    renderer_demo_start(60);
+    printf("Initializing FFT engine\n");
+    queue_init(&freq_levels_q, sizeof(uint32_t), FREQ_LEVELS_Q_MAX_ELEMENTS);
+    multicore_launch_core1(core1_main);
     
+    uint32_t fft_engine_ready_flag = 0;
+    queue_remove_blocking(&freq_levels_q, &fft_engine_ready_flag);
+
+    printf("Ready\n");
+
+    renderer_demo_start(60);
     while (true) {
         cyw43_arch_gpio_put(LED_PIN, 1);
         sleep_ms(100);
