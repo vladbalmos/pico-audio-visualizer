@@ -27,18 +27,17 @@
 
 #define LED_COLS_COUNT 3
 
-int64_t renderer_mux_delay_us;
-repeating_timer_t mux_timer;
+static int64_t renderer_mux_delay_us;
+static repeating_timer_t mux_timer;
 
-uint8_t demo_fps;
-repeating_timer_t demo_timer;
-demo_timer_data_t demo_timer_data = {NULL};
+static repeating_timer_t demo_timer;
+static demo_timer_data_t demo_timer_data = {NULL};
 
-int8_t last_selected_led_col = -1;
-uint8_t led_row_index = 0;
-uint8_t led_state;
+static int8_t last_selected_led_col = -1;
+static uint8_t led_row_index = 0;
+static uint8_t led_state;
 
-const uint8_t led_pins[] = {
+static const uint8_t led_pins[] = {
     LED_0_PIN,
     LED_1_PIN,
     LED_2_PIN,
@@ -49,13 +48,13 @@ const uint8_t led_pins[] = {
     LED_7_PIN
 };
 
-const uint8_t mux_ctrl_pins[] = {
+static const uint8_t mux_ctrl_pins[] = {
     MUX_A_PIN,
     MUX_B_PIN,
     MUX_C_PIN
 };
 
-uint8_t leds_state[LED_COLS_COUNT][LED_PINS_COUNT];
+static uint8_t leds_state[LED_COLS_COUNT][LED_PINS_COUNT];
 
 void init_state() {
     uint8_t i, j;
@@ -214,7 +213,7 @@ void renderer_demo_start(uint8_t fps) {
     demo_timer_data.index = 0;
     demo_timer_data.is_running = 1;
     
-    printf("Starting demo timer with %lldus delay\n", demo_delay_us / 1000);
+    // printf("Starting demo timer with %lldus delay\n", demo_delay_us / 1000);
 
     if (!add_repeating_timer_us(demo_delay_us, render_demo_states, &demo_timer_data, &demo_timer)) {
         panic("Unable to start DEMO timer\n");
@@ -226,7 +225,7 @@ uint8_t renderer_demo_is_running() {
 }
 
 void renderer_demo_stop() {
-    printf("Stopping demo\n");
+    // printf("Stopping demo\n");
     cancel_repeating_timer(&demo_timer);
     if (demo_timer_data.states != NULL) {
         free(demo_timer_data.states);

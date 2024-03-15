@@ -27,9 +27,11 @@ pico_enable_stdio_uart(visualiser 1)
 # pull in common dependencies
 target_link_libraries(visualiser
     pico_stdlib
+    pico_malloc
     pico_cyw43_arch_none
     pico_multicore
     hardware_adc
+    hardware_dma
     )
 
 set(KISSFFT_STATIC ON)
