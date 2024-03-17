@@ -13,9 +13,6 @@ queue_t freq_levels_q;
 
 void core1_main() {
     fft_engine_init(&freq_levels_q, 60);
-    while (true) {
-        __wfe();
-    }
 }
 
 
@@ -50,11 +47,7 @@ int main() {
     uint32_t fft_engine_ready_flag = 0;
     queue_remove_blocking(&freq_levels_q, &fft_engine_ready_flag);
 
-    float analysis_period = 1.0 / 60;
-    float adc_capture_period = 1.0 / 44100;
-    int dma_buf_size = div_by_32((int) (analysis_period / adc_capture_period));
-
-    printf("Ready %d\n", dma_buf_size);
+    // printf("Ready\n");
 
     renderer_demo_start(60);
     while (true) {

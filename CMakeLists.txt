@@ -5,6 +5,7 @@ project(pico-audio-visualizer VERSION 0.1 LANGUAGES C CXX ASM)
 set(PICO_BOARD pico_w)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
+set(CYW43_ARCH_DEBUG_ENABLED 0)
 
 pico_sdk_init()
 
@@ -13,6 +14,7 @@ add_compile_options(-Wall
         -Wno-unused-function # we have some for the docs that aren't called
         -Wno-maybe-uninitialized
         )
+    
 
 add_executable(visualiser
     fft_engine.c
