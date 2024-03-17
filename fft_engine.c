@@ -25,7 +25,8 @@ static int16_t *tmp_buf = NULL;
 static size_t adc_buf_size;
 static uint adc_samples_for_fft_buf_size;
 
-static uint8_t samples_ready = 0;
+static queue_t samples_ready_q;
+static uint8_t isr_sample_ready_flag = 1;
 static queue_t *levels_q = NULL;
 
 static uint8_t analysis_per_sec;
@@ -40,24 +41,31 @@ static inline int div_by_32(int n) {
 }
 
 static void __isr adc_dma_isr() {
-    samples_ready = 1;
     // Since we're analyzing the last 32ms of audio, we need the last 16ms sample set
-    // memcpy(adc_samples_for_fft_buf, adc_averaged_samples_buf, adc_buf_size);
+    memcpy(adc_samples_for_fft_buf, adc_averaged_samples_buf, adc_buf_size);
 
-    // tmp_buf = adc_averaged_samples_buf;
+    tmp_buf = adc_averaged_samples_buf;
     
-    // for (uint16_t i = 0; i < adc_dma_transfer_count; i++) {
-    //     // Average each sample using the current and previous sample set
-    //     // add the result to the `averaged` buffer
-    //     *tmp_buf++ = (adc_samples_buf[i] + adc_prev_samples_buf[i]) / 2;
-    // }
-    // adc_prev_samples_buf = adc_samples_buf;
+    for (uint16_t i = 0; i < adc_dma_transfer_count; i++) {
+        // We need to remove the DC bias and scale the sample,
+        // since the original signal is attenuated by half
+        // adc_samples_buf[i] = (adc_samples_buf[i] - DC_BIAS) * 2;
+        adc_samples_buf[i] = adc_samples_buf[i] - DC_BIAS;
+        // Average each sample using the current and previous sample set
+        // add the result to the `averaged` buffer
+        *tmp_buf++ = (adc_samples_buf[i] + adc_prev_samples_buf[i]) / 2;
+    }
+    adc_prev_samples_buf = adc_samples_buf;
     
-    // // Append the new sample set
-    // memcpy(&adc_samples_for_fft_buf[adc_samples_for_fft_buf_size / 2], adc_averaged_samples_buf, adc_buf_size);
+    // Append the new sample set
+    memcpy(&adc_samples_for_fft_buf[adc_samples_for_fft_buf_size / 2], adc_averaged_samples_buf, adc_buf_size);
     
     // Restart DMA transfer
-    dma_channel_set_write_addr(adc_dma_chan, &adc_samples_buf[0], true);
+    dma_hw->ints0 = 1u << adc_dma_chan;
+    dma_channel_set_write_addr(adc_dma_chan, adc_samples_buf, true);
+
+    // Notify event loop that samples are ready
+    queue_try_add(&samples_ready_q, &isr_sample_ready_flag);
 }
 
 void init_adc_dma() {
@@ -66,6 +74,7 @@ void init_adc_dma() {
     float adc_capture_period = 1.0 / ADC_SAMPLE_RATE_HZ;
 
     adc_dma_transfer_count = div_by_32((int) (analysis_period / adc_capture_period));
+    printf("ADC DMA Transfer count: %d", adc_dma_transfer_count);
     if (adc_dma_transfer_count <= 0) {
         panic("Invalid ADC DMA transfer count\n");
     }
@@ -95,7 +104,6 @@ void init_adc_dma() {
         panic("Unable to allocate %d bytes to 'adc_averaged_samples_buf'\n", adc_samples_for_fft_buf_size);
     }
     memset(adc_averaged_samples_buf, 0, adc_samples_for_fft_buf_size);
-    
 
     // Setup ADC
     adc_init();
@@ -104,12 +112,8 @@ void init_adc_dma() {
     adc_fifo_setup(true, true, 1, false, false);
     adc_set_clkdiv(adc_clock_div);
 
-
     // Setup DMA
     adc_dma_chan = dma_claim_unused_channel(true);
-    dma_channel_set_irq0_enabled(adc_dma_chan, true);
-    irq_set_exclusive_handler(DMA_IRQ_0, adc_dma_isr);
-    irq_set_enabled(DMA_IRQ_0, true);
 
     dma_channel_config cfg = dma_channel_get_default_config(adc_dma_chan);
     channel_config_set_transfer_data_size(&cfg, DMA_SIZE_16);
@@ -120,50 +124,50 @@ void init_adc_dma() {
     dma_channel_configure(
         adc_dma_chan,
         &cfg,
-        &adc_samples_buf[0],
+        adc_samples_buf,
         &adc_hw->fifo,
         adc_dma_transfer_count,
         true
     );
+    dma_channel_set_irq1_enabled(adc_dma_chan, true);
+    irq_set_exclusive_handler(DMA_IRQ_1, adc_dma_isr);
+    irq_set_enabled(DMA_IRQ_1, true);
 }
 
 void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     levels_q = freq_levels_q;
     uint32_t engine_ready = FFT_ENGINE_READY;
-    int16_t *adc_samples = NULL;
     int32_t hann_window_value;
     int16_t sample;
-    uint16_t adc_samples_count = 2 * adc_dma_transfer_count;
+    uint8_t sample_ready_flag = 0;
+    uint16_t adc_samples_count;
+    stdio_init_all();
     
     analysis_per_sec = runs_per_sec;
     
+    queue_init(&samples_ready_q, sizeof(uint8_t), ADC_SAMPLES_Q_MAX_ELEMENTS);
+    
     init_adc_dma();
     adc_run(true);
-    
-    queue_add_blocking(levels_q, &engine_ready);
-    printf("In here yes\n");
-    while (true) {
-        printf("In here\n");
-        if (!samples_ready) {
-            __wfe();
-            continue;
-        }
-        samples_ready = 0;
-        __wfe();
 
-        // for (uint16_t i = 0; i < adc_samples_count; i++) {
-        //     // We need to remove the DC bias and scale the sample,
-        //     // since the original signal is attenuated by half
-        //     sample = (adc_samples_for_fft_buf[i] - DC_BIAS) * 2;
+    adc_samples_count = 2 * adc_dma_transfer_count;
+
+    queue_add_blocking(levels_q, &engine_ready);
+    while (true) {
+        queue_remove_blocking(&samples_ready_q, &sample_ready_flag);
+
+        for (uint16_t i = 0; i < adc_samples_count; i++) {
+            sample = adc_samples_for_fft_buf[i];
             
-        //     // Apply Hann windowing function
-        //     hann_window_value = (int32_t)(0.5 * (1 - cos(2 * M_PI * i / (adc_samples_count - 1))) * SCALE_FACTOR);
-        //     sample = ((int32_t) sample) * hann_window_value / SCALE_FACTOR;
+            // Apply Hann windowing function
+            hann_window_value = (int32_t)(0.5 * (1 - cos(2 * M_PI * i / (adc_samples_count - 1))) * SCALE_FACTOR);
+            sample = ((int32_t) sample) * hann_window_value / SCALE_FACTOR;
+            printf("%d\n", sample);
             
-        //     adc_samples_for_fft_buf[i]  = (int16_t) sample;
-        // }
+            adc_samples_for_fft_buf[i]  = (int16_t) sample;
+        }
+        queue_add_blocking(levels_q, &engine_ready);
         
-        // printf("Got sample\n");
 
         // TODO:
             // do FFT analysis

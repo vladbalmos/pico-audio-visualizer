@@ -26,38 +26,42 @@ int div_by_32(int n) {
 }
 
 int main() {
-    const uint LED_PIN = CYW43_WL_GPIO_LED_PIN;
-    const uint8_t leds_state[] = {0, 0, 0};
+    // const uint LED_PIN = CYW43_WL_GPIO_LED_PIN;
+    // const uint8_t leds_state[] = {0, 0, 0};
 
     stdio_init_all();
     if (cyw43_arch_init()) {
         printf("Cyw43 arch init failed\n");
         return -1;
     }
+    printf("Ready\n");
     
-    printf("Initializing renderer\n");
-    renderer_init(1000);
-    renderer_update_state(leds_state);
-    renderer_start();
+    // printf("Initializing renderer\n");
+    // renderer_init(1000);
+    // renderer_update_state(leds_state);
+    // renderer_start();
     
-    printf("Initializing FFT engine\n");
+    // printf("Initializing FFT engine\n");
     queue_init(&freq_levels_q, sizeof(uint32_t), FREQ_LEVELS_Q_MAX_ELEMENTS);
     multicore_launch_core1(core1_main);
     
     uint32_t fft_engine_ready_flag = 0;
     queue_remove_blocking(&freq_levels_q, &fft_engine_ready_flag);
 
-    // printf("Ready\n");
 
-    renderer_demo_start(60);
+    // renderer_demo_start(60);
     while (true) {
-        cyw43_arch_gpio_put(LED_PIN, 1);
-        sleep_ms(100);
-        cyw43_arch_gpio_put(LED_PIN, 0);
-        sleep_ms(100);
+        // cyw43_arch_gpio_put(LED_PIN, 1);
+        // sleep_ms(100);
+        // cyw43_arch_gpio_put(LED_PIN, 0);
+        // sleep_ms(100);
+
+        // printf("Got samples\n");
+        queue_remove_blocking(&freq_levels_q, &fft_engine_ready_flag);
+        // __wfe();
         
-        if (!renderer_demo_is_running()) {
-            renderer_demo_start(60);
-        }
+        // if (!renderer_demo_is_running()) {
+        //     renderer_demo_start(60);
+        // }
     }
 }
