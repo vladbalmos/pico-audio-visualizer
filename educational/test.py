@@ -61,6 +61,8 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
 
     while True:
         frames = np_data[start:end]
+        hann_window = np.hamming(len(frames))
+        frames = frames * hann_window
         # TODO: analyze window of current - 100ms in time
         
         # frames = np_data[0:end]
@@ -92,7 +94,6 @@ def analyze_fft(audio_frames, slice_size, audio_framerate, sample_width, channel
 
             loudness_db = 20 * np.log10((amplitudes + epsilon) / (max_amplitude + epsilon))
             max_loudness = np.max(loudness_db)
-            ema1 = ema[0]
             ema[0] = (max_loudness * alpha) + (ema[0] * (1 - alpha))
             
             # diff = abs(ema[0] - ema1)
