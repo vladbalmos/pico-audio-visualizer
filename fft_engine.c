@@ -128,7 +128,6 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     uint8_t samples_ready_flag = 0;
     uint8_t levels_ready_flag = 1;
     float mag;
-    float levels[3] = {-INFINITY};
 
 #ifdef HANN_ENABLED
     int16_t sample;
