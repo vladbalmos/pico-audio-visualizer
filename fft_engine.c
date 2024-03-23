@@ -26,6 +26,10 @@ int adc_dma_chan;
 int16_t adc_buf[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
 int16_t adc_samples_buf[ADC_SAMPLES_COUNT] = {0};
 int16_t adc_prev_samples_buf[ADC_SAMPLES_COUNT] = {0};
+    
+#ifdef HANN_ENABLED
+    int16_t hann_window_lookup[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
+#endif
 
 #ifdef ADC_AVG_ENABLED
 int16_t adc_averaged_samples_buf[ADC_SAMPLES_COUNT] = {0};
@@ -44,6 +48,7 @@ void __isr adc_dma_isr() {
     now = time_us_32();
     isr_duration = now - last_called;
     last_called = now;
+    int32_t sample;
 
     // Since we're analyzing the last 32ms of audio, we need the last 16ms sample set
 #ifdef ADC_AVG_ENABLED
@@ -75,6 +80,16 @@ void __isr adc_dma_isr() {
 
     // Append the new sample set
     memcpy(&adc_samples_for_fft_buf[ADC_SAMPLES_COUNT], adc_samples_buf, ADC_SAMPLES_COUNT * sizeof(int16_t));
+#endif
+    
+    
+#ifdef HANN_ENABLED
+        // Apply Hann windowing function
+        for (uint16_t i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
+            sample = adc_samples_for_fft_buf[i];
+            sample = (int32_t) sample * hann_window_lookup[i];
+            adc_samples_for_fft_buf[i]  = (int16_t) (sample >> 16);
+        }
 #endif
 
     // Restart DMA transfer
@@ -123,12 +138,12 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     uint32_t engine_ready = FFT_ENGINE_READY;
     int16_t sample;
     uint8_t samples_ready_flag = 0;
+    float mag;
+    uint32_t freq;
+    uint32_t freq_multiplier = ADC_SAMPLE_RATE_HZ / MAX_FFT_VALUES;
+    float dbFS;
     kiss_fftr_cfg fft_cfg = kiss_fftr_alloc(ADC_SAMPLES_FOR_FFT_COUNT, 0, NULL, NULL);
     kiss_fft_cpx fft_output[MAX_FFT_VALUES];
-    
-#ifdef HANN_ENABLED
-    int16_t hann_window_lookup[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
-#endif
 
     queue_init(&samples_ready_q, sizeof(uint8_t), ADC_SAMPLES_Q_MAX_ELEMENTS);
 
@@ -145,8 +160,8 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     adc_run(true);
 
     queue_add_blocking(levels_q, &engine_ready);
-    // int32_t t = time_us_32();
-    // int32_t d;
+    int32_t t = time_us_32();
+    int32_t d;
     
 #ifdef ADC_AVG_ENABLED
     printf("ADC AVG enabled\n");
@@ -158,36 +173,29 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 
     while (true) {
         queue_remove_blocking(&samples_ready_q, &samples_ready_flag);
-        // uint32_t start_time = time_us_32();
         memcpy(adc_buf, adc_samples_for_fft_buf, ADC_SAMPLES_FOR_FFT_COUNT * sizeof(int16_t));
 
-#ifdef HANN_ENABLED
-        // Apply Hann windowing function
-        for (uint16_t i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
-            sample = adc_buf[i];
-            sample = (int32_t) sample * hann_window_lookup[i];
-            adc_buf[i]  = (int16_t) (sample >> 16);
-        }
-#endif
-        
+        uint32_t start_time = time_us_32();
+        d = start_time - t;
         kiss_fftr(fft_cfg, adc_buf, fft_output);
 
         // TODO: finish computing magnitude & convert to dbFS
-        // for (uint16_t i = 0;  i < MAX_FFT_VALUES; i++) {
-        //     long double magnitude = sqrt(fft_output[i].r * fft_output[i].r + fft_output[i].i * fft_output[i].i);
-        // }
+        for (uint16_t i = 0;  i < MAX_FFT_VALUES; i++) {
+            mag = sqrt(fft_output[i].r * fft_output[i].r + fft_output[i].i * fft_output[i].i);
+            freq = i * freq_multiplier;
+            dbFS = 20 * log10(mag / 2048);
+        }
         
-        // d = start_time - t;
-        // if (d > 250000) {
-        //     uint32_t end_time = time_us_32();
-        //     printf("FFT: %d. ISR: %d. Diff since last_called: %d\n", end_time - start_time, isr_duration, end_time - last_called);
-        //     t = start_time;
-        // }
+        if (d > 250000) {
+            uint32_t end_time = time_us_32();
+            printf("FFT: %d. ISR: %d. Diff since last_called: %d\n", end_time - start_time, isr_duration, end_time - last_called);
+            t = start_time;
+        }
+
         queue_add_blocking(levels_q, &engine_ready);
 
         // TODO:
             // implement ADC calibration
-            // do FFT analysis
             // convert amplitudes to dbFS
             // apply EMA on resulting dbFS
             // scale the resulting amplitudes to LED states

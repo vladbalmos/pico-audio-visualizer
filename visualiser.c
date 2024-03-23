@@ -3,6 +3,7 @@
 #include "pico/multicore.h"
 #include "pico/util/queue.h"
 #include "pico/cyw43_arch.h"
+#include "hardware/clocks.h"
 // #include "kissfft/kiss_fft.h"
 #include "renderer.h"
 #include "fft_engine.h"
@@ -19,6 +20,8 @@ void core1_main() {
 int main() {
     // const uint LED_PIN = CYW43_WL_GPIO_LED_PIN;
     // const uint8_t leds_state[] = {0, 0, 0};
+    
+    // set_sys_clock_khz(200000, true);
 
     stdio_init_all();
     if (cyw43_arch_init()) {

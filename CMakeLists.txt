@@ -26,7 +26,11 @@ add_executable(visualiser
 # ADC_AVG_ENABLED - average ADC samples
 # HANN_ENABLED - apply Hann windowing function before FFT analysis
 # EMA_ENABLED - apply EMA to dbFS for each frequency band
-target_compile_definitions(visualiser PRIVATE ADC_AVG_ENABLED=1 HANN_ENABLED=1 EMA_ENABLED=1)
+target_compile_definitions(visualiser PRIVATE
+                                    FREQ_BINS=3
+                                    ADC_AVG_ENABLED=1
+                                    HANN_ENABLED=1 
+                                    EMA_ENABLED=1)
 
 set(KISSFFT_STATIC ON)
 set(KISSFFT_TEST OFF)
@@ -45,6 +49,7 @@ target_link_libraries(visualiser
     pico_multicore
     hardware_adc
     hardware_dma
+    hardware_clocks
     kissfft
     )
 
