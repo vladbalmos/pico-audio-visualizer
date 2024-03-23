@@ -19,6 +19,7 @@ add_compile_options(-Wall
     
 
 add_executable(visualiser
+    frequencies_bins.c
     fft_engine.c
     renderer.c
     visualiser.c
@@ -27,9 +28,8 @@ add_executable(visualiser
 # HANN_ENABLED - apply Hann windowing function before FFT analysis
 # EMA_ENABLED - apply EMA to dbFS for each frequency band
 target_compile_definitions(visualiser PRIVATE
-                                    FREQ_BINS=3
                                     ADC_AVG_ENABLED=1
-                                    HANN_ENABLED=1 
+                                    # HANN_ENABLED=1 
                                     EMA_ENABLED=1)
 
 set(KISSFFT_STATIC ON)

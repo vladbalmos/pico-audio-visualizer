@@ -6,6 +6,7 @@
 #include "pico/stdlib.h"
 #include "fft_engine.h"
 #include "kissfft/kiss_fftr.h"
+#include "frequencies_bins.h"
 
 #define ADC_SAMPLES_COUNT 736
 #define ADC_SAMPLES_FOR_FFT_COUNT 1024
@@ -21,34 +22,33 @@
 
 #define DC_BIAS 2048 // Half of max voltage (3.3V = 4096 for our 12bit ADC)
 
-int adc_dma_chan;
+static int adc_dma_chan;
 
-int16_t adc_buf[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
-int16_t adc_samples_buf[ADC_SAMPLES_COUNT] = {0};
-int16_t adc_prev_samples_buf[ADC_SAMPLES_COUNT] = {0};
+static int16_t adc_buf[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
+static int16_t adc_samples_buf[ADC_SAMPLES_COUNT] = {0};
+static int16_t adc_prev_samples_buf[ADC_SAMPLES_COUNT] = {0};
     
 #ifdef HANN_ENABLED
-    int16_t hann_window_lookup[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
+static int16_t hann_window_lookup[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
 #endif
 
 #ifdef ADC_AVG_ENABLED
-int16_t adc_averaged_samples_buf[ADC_SAMPLES_COUNT] = {0};
+static int16_t adc_averaged_samples_buf[ADC_SAMPLES_COUNT] = {0};
 #endif
 
-int16_t adc_samples_for_fft_buf[2 * ADC_SAMPLES_COUNT] = {0};
-int32_t now = 0;
-int32_t last_called = 0;
-int32_t isr_duration = 0;
+static int16_t adc_samples_for_fft_buf[2 * ADC_SAMPLES_COUNT] = {0};
+static int32_t now = 0;
+static int32_t last_called = 0;
+static int32_t isr_duration = 0;
 
-queue_t samples_ready_q;
-uint8_t isr_samples_ready_flag = 1;
-queue_t *levels_q = NULL;
+static queue_t samples_ready_q;
+static uint8_t isr_samples_ready_flag = 1;
+static queue_t *levels_q = NULL;
 
-void __isr adc_dma_isr() {
+static void __isr adc_dma_isr() {
     now = time_us_32();
     isr_duration = now - last_called;
     last_called = now;
-    int32_t sample;
 
     // Since we're analyzing the last 32ms of audio, we need the last 16ms sample set
 #ifdef ADC_AVG_ENABLED
@@ -90,7 +90,7 @@ void __isr adc_dma_isr() {
     queue_try_add(&samples_ready_q, &isr_samples_ready_flag);
 }
 
-void init_adc_dma() {
+static void init_adc_dma() {
     float adc_clock_div = ADC_CLOCK_SPEED_HZ / ADC_SAMPLE_RATE_HZ;
 
     // Setup ADC
@@ -125,13 +125,18 @@ void init_adc_dma() {
 void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     levels_q = freq_levels_q;
 
-    uint32_t engine_ready = FFT_ENGINE_READY;
-    int16_t sample;
     uint8_t samples_ready_flag = 0;
+    uint8_t levels_ready_flag = 1;
     float mag;
-    uint32_t freq;
-    uint32_t freq_multiplier = ADC_SAMPLE_RATE_HZ / MAX_FFT_VALUES;
-    float dbFS;
+    float levels[3] = {-INFINITY};
+
+#ifdef HANN_ENABLED
+    int16_t sample;
+    float ref_mag = 512 * 0.5;
+#else
+    // float ref_mag = 2047.5;
+    float ref_mag = 512;
+#endif
     kiss_fftr_cfg fft_cfg = kiss_fftr_alloc(ADC_SAMPLES_FOR_FFT_COUNT, 0, NULL, NULL);
     kiss_fft_cpx fft_output[MAX_FFT_VALUES];
 
@@ -149,7 +154,7 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 
     adc_run(true);
 
-    queue_add_blocking(levels_q, &engine_ready);
+    queue_add_blocking(levels_q, NULL);
     int32_t t = time_us_32();
     int32_t d;
     
@@ -161,6 +166,7 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 #endif
 
     uint16_t start_offset = (ADC_SAMPLES_COUNT * 2) - ADC_SAMPLES_FOR_FFT_COUNT;
+    fb_init(ADC_SAMPLE_RATE_HZ, MAX_FFT_VALUES, ref_mag);
 
     while (true) {
         queue_remove_blocking(&samples_ready_q, &samples_ready_flag);
@@ -171,29 +177,34 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
         for (uint16_t i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
             sample = adc_buf[i];
             sample = (int32_t) sample * hann_window_lookup[i];
-            adc_buf[i]  = (int16_t) (sample >> 16);
+            adc_buf[i]  = sample >> 16;
         }
 #endif
-
-
         uint32_t start_time = time_us_32();
         d = start_time - t;
+        
+        // FFT analysis
         kiss_fftr(fft_cfg, adc_buf, fft_output);
 
-        // TODO: finish computing magnitude & convert to dbFS
+        fb_reset();
+
+        // Compute magnitudes
         for (uint16_t i = 0;  i < MAX_FFT_VALUES; i++) {
             mag = sqrt(fft_output[i].r * fft_output[i].r + fft_output[i].i * fft_output[i].i);
-            freq = i * freq_multiplier;
-            dbFS = 20 * log10(mag / 2048);
-        }
-        
-        if (d > 250000) {
-            uint32_t end_time = time_us_32();
-            printf("FFT: %d. ISR: %d. Diff since last_called: %d\n", end_time - start_time, isr_duration, end_time - last_called);
-            t = start_time;
+            fb_add_mag(i, mag);
+            // if (d > 250000) {
+            //     printf("%f ", mag);
+            // }
         }
 
-        queue_add_blocking(levels_q, &engine_ready);
+        // if (d > 250000) {
+        //     printf("\n=========================\n");
+        //     uint32_t end_time = time_us_32();
+        //     printf("%f %f %f - FFT: %d. ISR: %d. Diff since last_called: %d\n", levels[0], levels[1], levels[2], end_time - start_time, isr_duration, end_time - last_called);
+        //     t = start_time;
+        // }
+
+        queue_add_blocking(levels_q, &levels_ready_flag);
 
         // TODO:
             // implement ADC calibration
