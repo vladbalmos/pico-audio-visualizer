@@ -8,8 +8,8 @@
 #include "kissfft/kiss_fftr.h"
 
 #define ADC_SAMPLES_COUNT 736
-#define ADC_SAMPLES_FOR_FFT_COUNT (2 * ADC_SAMPLES_COUNT)
-#define MAX_FFT_VALUES (ADC_SAMPLES_COUNT + 1)
+#define ADC_SAMPLES_FOR_FFT_COUNT 1024
+#define MAX_FFT_VALUES (ADC_SAMPLES_FOR_FFT_COUNT / 2 + 1)
 
 #ifdef HANN_ENABLED
 #define SCALE_FACTOR (1<<16)
@@ -35,7 +35,7 @@ int16_t adc_prev_samples_buf[ADC_SAMPLES_COUNT] = {0};
 int16_t adc_averaged_samples_buf[ADC_SAMPLES_COUNT] = {0};
 #endif
 
-int16_t adc_samples_for_fft_buf[ADC_SAMPLES_FOR_FFT_COUNT] = {0};
+int16_t adc_samples_for_fft_buf[2 * ADC_SAMPLES_COUNT] = {0};
 int32_t now = 0;
 int32_t last_called = 0;
 int32_t isr_duration = 0;
@@ -82,16 +82,6 @@ void __isr adc_dma_isr() {
     memcpy(&adc_samples_for_fft_buf[ADC_SAMPLES_COUNT], adc_samples_buf, ADC_SAMPLES_COUNT * sizeof(int16_t));
 #endif
     
-    
-#ifdef HANN_ENABLED
-        // Apply Hann windowing function
-        for (uint16_t i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
-            sample = adc_samples_for_fft_buf[i];
-            sample = (int32_t) sample * hann_window_lookup[i];
-            adc_samples_for_fft_buf[i]  = (int16_t) (sample >> 16);
-        }
-#endif
-
     // Restart DMA transfer
     dma_hw->ints0 = 1u << adc_dma_chan;
     dma_channel_set_write_addr(adc_dma_chan, adc_samples_buf, true);
@@ -170,10 +160,21 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     printf("Hann windowing enabled\n");
 #endif
 
+    uint16_t start_offset = (ADC_SAMPLES_COUNT * 2) - ADC_SAMPLES_FOR_FFT_COUNT;
 
     while (true) {
         queue_remove_blocking(&samples_ready_q, &samples_ready_flag);
-        memcpy(adc_buf, adc_samples_for_fft_buf, ADC_SAMPLES_FOR_FFT_COUNT * sizeof(int16_t));
+        memcpy(adc_buf, &adc_samples_for_fft_buf[start_offset], ADC_SAMPLES_FOR_FFT_COUNT * sizeof(int16_t));
+
+#ifdef HANN_ENABLED
+        // Apply Hann windowing function
+        for (uint16_t i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
+            sample = adc_buf[i];
+            sample = (int32_t) sample * hann_window_lookup[i];
+            adc_buf[i]  = (int16_t) (sample >> 16);
+        }
+#endif
+
 
         uint32_t start_time = time_us_32();
         d = start_time - t;
