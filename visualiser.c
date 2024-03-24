@@ -59,31 +59,31 @@ int main() {
         queue_remove_blocking(&freq_levels_q, &second_core_signal);
 
         // Get max level for each frequency bin in dbFS
-        fb_get_levels(levels);
+        // fb_get_levels(levels);
 
-        for (int i = 0; i < fb_total; i++) {
-            if (levels[i] >= -6.5) {
-                leds_state[i] = 8;
-            } else if (levels[i] >= -9) {
-                leds_state[i] = 7;
-            } else if (levels[i] >= -12) {
-                leds_state[i] = 6;
-            } else if (levels[i] >= -15) {
-                leds_state[i] = 5;
-            } else if (levels[i] >= -18) {
-                leds_state[i] = 4;
-            } else if (levels[i] >= -21) {
-                leds_state[i] = 3;
-            } else if (levels[i] >= -24) {
-                leds_state[i] = 2;
-            } else if (levels[i] >= -27) {
-                leds_state[i] = 1;
-            } else {
-                leds_state[i] = 0;
-            }
-            renderer_update_state(leds_state);
-            // printf("%f ", levels[i]);
-        }
+        // for (int i = 0; i < fb_total; i++) {
+        //     if (levels[i] >= -6.5) {
+        //         leds_state[i] = 8;
+        //     } else if (levels[i] >= -9) {
+        //         leds_state[i] = 7;
+        //     } else if (levels[i] >= -12) {
+        //         leds_state[i] = 6;
+        //     } else if (levels[i] >= -15) {
+        //         leds_state[i] = 5;
+        //     } else if (levels[i] >= -18) {
+        //         leds_state[i] = 4;
+        //     } else if (levels[i] >= -21) {
+        //         leds_state[i] = 3;
+        //     } else if (levels[i] >= -24) {
+        //         leds_state[i] = 2;
+        //     } else if (levels[i] >= -27) {
+        //         leds_state[i] = 1;
+        //     } else {
+        //         leds_state[i] = 0;
+        //     }
+        //     renderer_update_state(leds_state);
+        //     // printf("%f ", levels[i]);
+        // }
         // printf("\n");
         
         // if (!renderer_demo_is_running()) {

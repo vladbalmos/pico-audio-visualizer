@@ -1,47 +1,11 @@
 LTspice 24.0.9 for Windows
 Circuit: * D:\hw\audio-visualizer\hw\adc_capture.asc
-Start Time: Tue Mar 19 19:28:13 2024
+Start Time: Sun Mar 24 11:44:11 2024
 solver = Normal
 Maximum thread count: 24
 tnom = 27
 temp = 27
 method = modified trap
-FRA @1 - Simultaneous frequencies [1e+07] Hz applied from time 0.0001 to 0.000202033 sec
-FRA @1 - Simultaneous frequencies [8.81744e+06] Hz applied from time 0.000202033 to 0.000304071 sec
-FRA @1 - Simultaneous frequencies [7.41455e+06] Hz applied from time 0.000304071 to 0.000406155 sec
-FRA @1 - Simultaneous frequencies [6.23487e+06] Hz applied from time 0.000406155 to 0.000508251 sec
-FRA @1 - Simultaneous frequencies [5.24288e+06] Hz applied from time 0.000508251 to 0.000610402 sec
-FRA @1 - Simultaneous frequencies [4.40872e+06] Hz applied from time 0.000610402 to 0.000712449 sec
-FRA @1 - Simultaneous frequencies [3.70728e+06] Hz applied from time 0.000712449 to 0.000814544 sec
-FRA @1 - Simultaneous frequencies [3.11744e+06] Hz applied from time 0.000814544 to 0.000916652 sec
-FRA @1 - Simultaneous frequencies [2.62144e+06] Hz applied from time 0.000916652 to 0.00101901 sec
-FRA @1 - Simultaneous frequencies [2.20436e+06] Hz applied from time 0.00101901 to 0.0011213 sec
-FRA @1 - Simultaneous frequencies [1.85364e+06] Hz applied from time 0.0011213 to 0.00122369 sec
-FRA @1 - Simultaneous frequencies [1.55872e+06] Hz applied from time 0.00122369 to 0.00132582 sec
-FRA @1 - Simultaneous frequencies [1.31072e+06] Hz applied from time 0.00132582 to 0.00142859 sec
-FRA @1 - Simultaneous frequencies [1.10218e+06] Hz applied from time 0.00142859 to 0.00153137 sec
-FRA @1 - Simultaneous frequencies [926819] Hz applied from time 0.00153137 to 0.0016338 sec
-FRA @1 - Simultaneous frequencies [779359] Hz applied from time 0.0016338 to 0.00173599 sec
-FRA @1 - Simultaneous frequencies [655360] Hz applied from time 0.00173599 to 0.00183882 sec
-FRA @1 - Simultaneous frequencies [551090] Hz applied from time 0.00183882 to 0.00194258 sec
-FRA @1 - Simultaneous frequencies [463410] Hz applied from time 0.00194258 to 0.00204617 sec
-FRA @1 - Simultaneous frequencies [389679] Hz applied from time 0.00204617 to 0.00214846 sec
-FRA @1 - Simultaneous frequencies [327680] Hz applied from time 0.00214846 to 0.00225141 sec
-FRA @1 - Simultaneous frequencies [275545] Hz applied from time 0.00225141 to 0.00235532 sec
-FRA @1 - Simultaneous frequencies [231705] Hz applied from time 0.00235532 to 0.00246125 sec
-FRA @1 - Simultaneous frequencies [163840] Hz applied from time 0.00246125 to 0.00256749 sec
-FRA @1 - Simultaneous frequencies [137772] Hz applied from time 0.00256749 to 0.00267169 sec
-FRA @1 - Simultaneous frequencies [115852] Hz applied from time 0.00267169 to 0.00277796 sec
-FRA @1 - Simultaneous frequencies [97419.8, 194840] Hz applied from time 0.00277796 to 0.00288302 sec
-FRA @1 - Simultaneous frequencies [40960, 81920] Hz applied from time 0.00288302 to 0.00300807 sec
-FRA @1 - Simultaneous frequencies [17221.6, 34443.1, 68886.2] Hz applied from time 0.00300807 to 0.00312736 sec
-FRA @1 - Simultaneous frequencies [14481.5, 28963.1, 57926.2] Hz applied from time 0.00312736 to 0.00326885 sec
-FRA @1 - Simultaneous frequencies [12177.5, 24355, 48709.9] Hz applied from time 0.00326885 to 0.00343673 sec
-FRA @1 - Simultaneous frequencies [5120, 10240, 20480] Hz applied from time 0.00343673 to 0.00363795 sec
-FRA @1 - Simultaneous frequencies [640, 1280, 2560] Hz applied from time 0.00363795 to 0.0052337 sec
-FRA @1 - Simultaneous frequencies [80, 160, 320] Hz applied from time 0.0052337 to 0.0179857 sec
-FRA @1 - Simultaneous frequencies [10, 20, 40] Hz applied from time 0.0179857 to 0.119988 sec
 Direct Newton iteration for .op point succeeded.
-FRA Instance 1: F(0dB) = 468.967 kHz, Phase Margin = 92.8 degrees, Gain Margin = 10.0 dB at 593.984 kHz
-Total elapsed time: 4.030 seconds.
+Total elapsed time: 0.036 seconds.
 

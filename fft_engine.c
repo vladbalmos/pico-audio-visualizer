@@ -181,6 +181,16 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 #endif
         uint32_t start_time = time_us_32();
         d = start_time - t;
+
+        if (d > 250000) {
+            // printf("\n=========================\n");
+            // for (int i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
+            //     printf("%d ", adc_buf[i]);
+            // }
+            uint32_t end_time = time_us_32();
+            printf("%f %f %f - FFT: %d. ISR: %d. Diff since last_called: %d\n", end_time - start_time, isr_duration, end_time - last_called);
+            t = start_time;
+        }
         
         // FFT analysis
         kiss_fftr(fft_cfg, adc_buf, fft_output);
@@ -191,25 +201,12 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
         for (uint16_t i = 0;  i < MAX_FFT_VALUES; i++) {
             mag = sqrt(fft_output[i].r * fft_output[i].r + fft_output[i].i * fft_output[i].i);
             fb_add_mag(i, mag);
-            // if (d > 250000) {
-            //     printf("%f ", mag);
-            // }
         }
 
-        // if (d > 250000) {
-        //     printf("\n=========================\n");
-        //     uint32_t end_time = time_us_32();
-        //     printf("%f %f %f - FFT: %d. ISR: %d. Diff since last_called: %d\n", levels[0], levels[1], levels[2], end_time - start_time, isr_duration, end_time - last_called);
-        //     t = start_time;
-        // }
 
         queue_add_blocking(levels_q, &levels_ready_flag);
 
         // TODO:
             // implement ADC calibration
-            // convert amplitudes to dbFS
-            // apply EMA on resulting dbFS
-            // scale the resulting amplitudes to LED states
-            // push LED states to queue
     }
 }

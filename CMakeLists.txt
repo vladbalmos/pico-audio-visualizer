@@ -28,9 +28,10 @@ add_executable(visualiser
 # HANN_ENABLED - apply Hann windowing function before FFT analysis
 # EMA_ENABLED - apply EMA to dbFS for each frequency band
 target_compile_definitions(visualiser PRIVATE
-                                    ADC_AVG_ENABLED=1
-                                    # HANN_ENABLED=1 
-                                    EMA_ENABLED=1)
+                                    # ADC_AVG_ENABLED=1
+                                    # HANN_ENABLED=1
+                                    # EMA_ENABLED=1
+)
 
 set(KISSFFT_STATIC ON)
 set(KISSFFT_TEST OFF)
