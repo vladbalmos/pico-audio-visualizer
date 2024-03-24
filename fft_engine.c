@@ -13,7 +13,7 @@
 #define MAX_FFT_VALUES (ADC_SAMPLES_FOR_FFT_COUNT / 2 + 1)
 
 #ifdef HANN_ENABLED
-#define SCALE_FACTOR (1<<16)
+#define HANN_COEF_SCALE_FACTOR (1<<15)
 #endif
 
 #define ADC_SAMPLES_Q_MAX_ELEMENTS 8
@@ -131,10 +131,10 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 
 #ifdef HANN_ENABLED
     int16_t sample;
-    float ref_mag = 512 * 0.5;
+    // float ref_mag = 2047.5 * 0.5;
 #else
     // float ref_mag = 2047.5;
-    float ref_mag = 512;
+    float ref_mag = 511.5;
 #endif
     kiss_fftr_cfg fft_cfg = kiss_fftr_alloc(ADC_SAMPLES_FOR_FFT_COUNT, 0, NULL, NULL);
     kiss_fft_cpx fft_output[MAX_FFT_VALUES];
@@ -146,8 +146,8 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 #ifdef HANN_ENABLED
     // Create Hann lookup table
     for (int i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
-        double hann_value = 0.5 * (1 - cos(2 * M_PI * i / (ADC_SAMPLES_FOR_FFT_COUNT - 1)));
-        hann_window_lookup[i] = (int16_t) (hann_value * SCALE_FACTOR);
+        float hann_value = 0.5 * (1 - cos(2 * M_PI * i / (ADC_SAMPLES_FOR_FFT_COUNT - 1)));
+        hann_window_lookup[i] = (int16_t) (hann_value * HANN_COEF_SCALE_FACTOR);
     }
 #endif
 
@@ -165,7 +165,7 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 #endif
 
     uint16_t start_offset = (ADC_SAMPLES_COUNT * 2) - ADC_SAMPLES_FOR_FFT_COUNT;
-    fb_init(ADC_SAMPLE_RATE_HZ, MAX_FFT_VALUES, ref_mag);
+    fb_init(ADC_SAMPLE_RATE_HZ, ADC_SAMPLES_FOR_FFT_COUNT, ref_mag);
 
     while (true) {
         queue_remove_blocking(&samples_ready_q, &samples_ready_flag);
@@ -175,22 +175,22 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
         // Apply Hann windowing function
         for (uint16_t i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
             sample = adc_buf[i];
-            sample = (int32_t) sample * hann_window_lookup[i];
-            adc_buf[i]  = sample >> 16;
+            sample = (int32_t) sample * (int32_t) hann_window_lookup[i];
+            adc_buf[i]  = (int16_t) (sample >> 15);
         }
 #endif
         uint32_t start_time = time_us_32();
         d = start_time - t;
 
-        if (d > 250000) {
+        // if (d > 250000) {
             // printf("\n=========================\n");
             // for (int i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
             //     printf("%d ", adc_buf[i]);
             // }
-            uint32_t end_time = time_us_32();
-            printf("%f %f %f - FFT: %d. ISR: %d. Diff since last_called: %d\n", end_time - start_time, isr_duration, end_time - last_called);
-            t = start_time;
-        }
+            // uint32_t end_time = time_us_32();
+            // printf("FFT: %d. ISR: %d. Diff since last_called: %d\n", end_time - start_time, isr_duration, end_time - last_called);
+            // t = start_time;
+        // }
         
         // FFT analysis
         kiss_fftr(fft_cfg, adc_buf, fft_output);
@@ -202,6 +202,10 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
             mag = sqrt(fft_output[i].r * fft_output[i].r + fft_output[i].i * fft_output[i].i);
             fb_add_mag(i, mag);
         }
+        // if (d > 250000) {
+        //     printf("\n=========================\n");
+        //     t = start_time;
+        // }
 
 
         queue_add_blocking(levels_q, &levels_ready_flag);

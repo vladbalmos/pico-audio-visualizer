@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <math.h>
 #include "pico/stdlib.h"
 #include "frequencies_bins.h"
@@ -11,14 +12,17 @@ static float ref_mag = 0;
 static uint16_t freq_indexes[FB_MAX_FFT_VALUES] = {};
 
 #ifdef EMA_ENABLED
-static float ema_alpha = 0.5;
+static float ema_alpha = 0.65;
 #endif
 
 
 uint16_t bins[FB_TOTAL][3] = {
-    {16, 250, -60},
-    {251, 2000, -60},
-    {2001, 20000, -60}
+    // {16, 250, -60},
+    // {251, 2000, -60},
+    // {2001, 20000, -60}
+    {16, 100, -60},
+    {101, 1000, -60},
+    {1001, 20000, -60}
 };
 
 float bins_max[FB_TOTAL] = {-INFINITY};

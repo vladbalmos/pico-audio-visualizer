@@ -47,6 +47,9 @@ int main() {
 
     printf("Ready\n");
     fflush(stdout);
+    int32_t start_time;
+    int32_t last_time = time_us_32();
+    int32_t time_diff;
 
     // renderer_demo_start(60);
     while (true) {
@@ -57,34 +60,43 @@ int main() {
 
         // printf("Got samples\n");
         queue_remove_blocking(&freq_levels_q, &second_core_signal);
+        start_time = time_us_32();
 
         // Get max level for each frequency bin in dbFS
-        // fb_get_levels(levels);
+        fb_get_levels(levels);
 
-        // for (int i = 0; i < fb_total; i++) {
-        //     if (levels[i] >= -6.5) {
-        //         leds_state[i] = 8;
-        //     } else if (levels[i] >= -9) {
-        //         leds_state[i] = 7;
-        //     } else if (levels[i] >= -12) {
-        //         leds_state[i] = 6;
-        //     } else if (levels[i] >= -15) {
-        //         leds_state[i] = 5;
-        //     } else if (levels[i] >= -18) {
-        //         leds_state[i] = 4;
-        //     } else if (levels[i] >= -21) {
-        //         leds_state[i] = 3;
-        //     } else if (levels[i] >= -24) {
-        //         leds_state[i] = 2;
-        //     } else if (levels[i] >= -27) {
-        //         leds_state[i] = 1;
-        //     } else {
-        //         leds_state[i] = 0;
-        //     }
-        //     renderer_update_state(leds_state);
-        //     // printf("%f ", levels[i]);
-        // }
-        // printf("\n");
+        time_diff = start_time - last_time;
+        
+        if (time_diff >= 500000) {
+            for (int i = 0; i < fb_total; i++) {
+                printf("%f ", levels[i]);
+            }
+            printf("\n");
+            last_time = start_time;
+        }
+
+        for (int i = 0; i < fb_total; i++) {
+            if (levels[i] >= -6.5) {
+                leds_state[i] = 8;
+            } else if (levels[i] >= -9) {
+                leds_state[i] = 7;
+            } else if (levels[i] >= -12) {
+                leds_state[i] = 6;
+            } else if (levels[i] >= -15) {
+                leds_state[i] = 5;
+            } else if (levels[i] >= -18) {
+                leds_state[i] = 4;
+            } else if (levels[i] >= -21) {
+                leds_state[i] = 3;
+            } else if (levels[i] >= -24) {
+                leds_state[i] = 2;
+            } else if (levels[i] >= -27) {
+                leds_state[i] = 1;
+            } else {
+                leds_state[i] = 0;
+            }
+            renderer_update_state(leds_state);
+        }
         
         // if (!renderer_demo_is_running()) {
         //     renderer_demo_start(60);
