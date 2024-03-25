@@ -29,7 +29,8 @@ add_executable(visualiser
 # EMA_ENABLED - apply EMA to dbFS for each frequency band
 target_compile_definitions(visualiser PRIVATE
                                     ADC_AVG_ENABLED=1
-                                    # HANN_ENABLED=1
+                                    HANN_ENABLED=1
+                                    #DBFS_ENABLED=1
                                     EMA_ENABLED=1
 )
 

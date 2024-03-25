@@ -8,7 +8,6 @@
 
 static uint16_t sampling_freq = 0;
 static uint16_t fft_count = 0;
-static float ref_mag = 0;
 static uint16_t freq_indexes[FB_MAX_FFT_VALUES] = {};
 
 #ifdef EMA_ENABLED
@@ -17,20 +16,19 @@ static float ema_alpha = 0.65;
 
 
 uint16_t bins[FB_TOTAL][3] = {
-    // {16, 250, -60},
-    // {251, 2000, -60},
-    // {2001, 20000, -60}
-    {16, 100, -60},
-    {101, 1000, -60},
-    {1001, 20000, -60}
+    {16, 250, -60},
+    {251, 2000, -60},
+    {2001, 20000, -60}
+    // {16, 100, -60},
+    // {101, 1000, -60},
+    // {1001, 20000, -60}
 };
 
 float bins_max[FB_TOTAL] = {-INFINITY};
 
-void fb_init(uint16_t _sampling_freq, uint16_t _fft_count, float _ref_mag) {
+void fb_init(uint16_t _sampling_freq, uint16_t _fft_count) {
     sampling_freq = _sampling_freq;
     fft_count = _fft_count;
-    ref_mag = _ref_mag;
     
     if (fft_count > FB_MAX_FFT_VALUES) {
         panic("Max allowed FFT values: %d. Requested: %d\n", FB_MAX_FFT_VALUES, fft_count);
@@ -69,12 +67,7 @@ void fb_get_levels(float *levels) {
 #endif
 
     for (uint16_t i = 0; i < FB_TOTAL; i++) {
-#ifdef HANN_ENABLED
-        dbFS = 20 * log10((bins_max[i] / ref_mag) * 0.7071);
-#else
-        dbFS = 20 * log10(bins_max[i] / ref_mag);
-#endif
-        
+        dbFS = 20 * log10(2 * bins_max[i] / fft_count);
 #ifdef EMA_ENABLED
         ema = bins[i][2];
         ema = (dbFS * ema_alpha) + (ema * (1 - ema_alpha));

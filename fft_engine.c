@@ -130,12 +130,9 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     float mag;
 
 #ifdef HANN_ENABLED
-    int16_t sample;
-    // float ref_mag = 2047.5 * 0.5;
-#else
-    // float ref_mag = 2047.5;
-    float ref_mag = 511.5;
+    int32_t sample;
 #endif
+
     kiss_fftr_cfg fft_cfg = kiss_fftr_alloc(ADC_SAMPLES_FOR_FFT_COUNT, 0, NULL, NULL);
     kiss_fft_cpx fft_output[MAX_FFT_VALUES];
 
@@ -154,8 +151,6 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
     adc_run(true);
 
     queue_add_blocking(levels_q, NULL);
-    int32_t t = time_us_32();
-    int32_t d;
     
 #ifdef ADC_AVG_ENABLED
     printf("ADC AVG enabled\n");
@@ -165,7 +160,7 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
 #endif
 
     uint16_t start_offset = (ADC_SAMPLES_COUNT * 2) - ADC_SAMPLES_FOR_FFT_COUNT;
-    fb_init(ADC_SAMPLE_RATE_HZ, ADC_SAMPLES_FOR_FFT_COUNT, ref_mag);
+    fb_init(ADC_SAMPLE_RATE_HZ, ADC_SAMPLES_FOR_FFT_COUNT);
 
     while (true) {
         queue_remove_blocking(&samples_ready_q, &samples_ready_flag);
@@ -179,18 +174,6 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
             adc_buf[i]  = (int16_t) (sample >> 15);
         }
 #endif
-        uint32_t start_time = time_us_32();
-        d = start_time - t;
-
-        // if (d > 250000) {
-            // printf("\n=========================\n");
-            // for (int i = 0; i < ADC_SAMPLES_FOR_FFT_COUNT; i++) {
-            //     printf("%d ", adc_buf[i]);
-            // }
-            // uint32_t end_time = time_us_32();
-            // printf("FFT: %d. ISR: %d. Diff since last_called: %d\n", end_time - start_time, isr_duration, end_time - last_called);
-            // t = start_time;
-        // }
         
         // FFT analysis
         kiss_fftr(fft_cfg, adc_buf, fft_output);
@@ -202,12 +185,6 @@ void fft_engine_init(queue_t *freq_levels_q, uint8_t runs_per_sec) {
             mag = sqrt(fft_output[i].r * fft_output[i].r + fft_output[i].i * fft_output[i].i);
             fb_add_mag(i, mag);
         }
-        // if (d > 250000) {
-        //     printf("\n=========================\n");
-        //     t = start_time;
-        // }
-
-
         queue_add_blocking(levels_q, &levels_ready_flag);
 
         // TODO:

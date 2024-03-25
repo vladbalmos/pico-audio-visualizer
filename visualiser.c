@@ -76,7 +76,7 @@ int main() {
         }
 
         for (int i = 0; i < fb_total; i++) {
-            if (levels[i] >= -6.5) {
+            if (levels[i] >= -6) {
                 leds_state[i] = 8;
             } else if (levels[i] >= -9) {
                 leds_state[i] = 7;
@@ -90,7 +90,7 @@ int main() {
                 leds_state[i] = 3;
             } else if (levels[i] >= -24) {
                 leds_state[i] = 2;
-            } else if (levels[i] >= -27) {
+            } else if (levels[i] >= -30) {
                 leds_state[i] = 1;
             } else {
                 leds_state[i] = 0;
