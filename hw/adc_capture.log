@@ -1,11 +1,11 @@
 LTspice 24.0.9 for Windows
 Circuit: * D:\hw\audio-visualizer\hw\adc_capture.asc
-Start Time: Mon Mar 25 20:54:00 2024
+Start Time: Wed Apr 17 18:54:49 2024
 solver = Normal
 Maximum thread count: 24
 tnom = 27
 temp = 27
 method = modified trap
 Direct Newton iteration for .op point succeeded.
-Total elapsed time: 0.031 seconds.
+Total elapsed time: 0.028 seconds.
 

@@ -13,6 +13,10 @@
 #define MUX_B_PIN 11
 #define MUX_C_PIN 10
 
+#define MUX_EENABLE_PIN 16
+#define MUX_AA_PIN 18
+#define MUX_BB_PIN 19
+
 #define LED_0_PIN 9
 #define LED_1_PIN 8
 #define LED_2_PIN 7

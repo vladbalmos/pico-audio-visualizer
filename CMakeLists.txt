@@ -10,7 +10,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
-
 add_compile_options(-Wall
         -Wno-format          # int != int32_t as far as the compiler is concerned because gcc has int32_t as long int
         -Wno-unused-function # we have some for the docs that aren't called
@@ -28,6 +27,8 @@ add_executable(visualiser
 # HANN_ENABLED - apply Hann windowing function before FFT analysis
 # EMA_ENABLED - apply EMA to dbFS for each frequency band
 target_compile_definitions(visualiser PRIVATE
+                                    ENABLE_LED_HEARTBEAT=1
+                                    ENABLE_DEMO_MODE=1
                                     ADC_AVG_ENABLED=1
                                     HANN_ENABLED=1
                                     #DBFS_ENABLED=1

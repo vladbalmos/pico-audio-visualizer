@@ -12,33 +12,59 @@
 
 #define FREQ_LEVELS_Q_MAX_ELEMENTS 16
 
-queue_t freq_levels_q;
+#ifdef ENABLE_LED_HEARTBEAT
+#define HEARTBEAT_LED_PIN CYW43_WL_GPIO_LED_PIN
+#endif
 
+queue_t freq_levels_q;
+repeating_timer_t heartbeat_timer;
+uint8_t default_led_state = 0;
+
+#ifndef ENABLE_DEMO_MODE
 void core1_main() {
     fft_engine_init(&freq_levels_q, 60);
 }
+#endif
+
+#ifdef ENABLE_LED_HEARTBEAT
+bool toggle_default_led(repeating_timer_t *t) {
+    default_led_state = !default_led_state;
+    cyw43_arch_gpio_put(HEARTBEAT_LED_PIN, default_led_state);
+    return true;
+}
+
+void enable_led_heartbeat() {
+    add_repeating_timer_ms(100, toggle_default_led, NULL, &heartbeat_timer);
+}
+#endif
 
 
 int main() {
+    uint8_t leds_state[] = {0, 0, 0};
+
+#ifndef ENABLE_DEMO_MODE
     uint8_t fb_total = fb_get_total();
     float *levels = malloc(fb_total * sizeof(float));
     uint8_t second_core_signal;
-    // const uint LED_PIN = CYW43_WL_GPIO_LED_PIN;
-    uint8_t leds_state[] = {0, 0, 0};
+#endif
     
     // set_sys_clock_khz(200000, true);
-
     stdio_init_all();
+    
+#ifdef ENABLE_LED_HEARTBEAT
     if (cyw43_arch_init()) {
         printf("Cyw43 arch init failed\n");
         return -1;
     }
+    enable_led_heartbeat();
+#endif
     
     printf("Initializing renderer\n");
     renderer_init(1000);
     renderer_update_state(leds_state);
     renderer_start();
     
+#ifndef ENABLE_DEMO_MODE
     printf("Initializing FFT engine\n");
     queue_init(&freq_levels_q, sizeof(uint8_t), FREQ_LEVELS_Q_MAX_ELEMENTS);
     multicore_launch_core1(core1_main);
@@ -50,14 +76,12 @@ int main() {
     int32_t start_time;
     int32_t last_time = time_us_32();
     int32_t time_diff;
+#else
+    renderer_demo_start(60);
+#endif
 
-    // renderer_demo_start(60);
     while (true) {
-        // cyw43_arch_gpio_put(LED_PIN, 1);
-        // sleep_ms(100);
-        // cyw43_arch_gpio_put(LED_PIN, 0);
-        // sleep_ms(100);
-
+#ifndef ENABLE_DEMO_MODE
         // printf("Got samples\n");
         queue_remove_blocking(&freq_levels_q, &second_core_signal);
         start_time = time_us_32();
@@ -97,9 +121,11 @@ int main() {
             }
             renderer_update_state(leds_state);
         }
-        
-        // if (!renderer_demo_is_running()) {
-        //     renderer_demo_start(60);
-        // }
+#else 
+        if (!renderer_demo_is_running()) {
+            renderer_demo_start(60);
+            sleep_ms(100);
+        }
+#endif
     }
 }
