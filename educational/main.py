@@ -7,7 +7,7 @@ import time
 import numpy as np
 import pyaudio
 import wave
-import screen
+from src import screen
 from collections import deque
 
 MAX_AMPLITUDE = 100
