@@ -1,13 +1,13 @@
+import argparse
 import sys
 import math
 import threading
 import queue
 import time
-import pyaudio
-import wave
 from src import screen
 from src import fft
 from src import animation_utils
+from src import audio_source
 from collections import deque
 
 MAX_AMPLITUDE = 100
@@ -17,12 +17,12 @@ FFT_SAMPLING_RATE = 60
 fft_queue = queue.Queue()
 stop_event = threading.Event()
 pixels_queue = deque()
+args = None
 
 last_fft = 0
 threshold = math.floor(1000 / FFT_SAMPLING_RATE) - 1
 
 
-# Define new frequency bands
 def next_divisible_by_32(n):
     remainder = n % 32
     if remainder == 0:
@@ -32,53 +32,37 @@ def next_divisible_by_32(n):
 
 
 def audio_worker():
-    # Path to the WAV file
-    try:
-        wav_file_path = sys.argv[1]
-    except:
-        wav_file_path = 'sample.wav'
-    # wav_file_path = 'snuff.wav'
-    print(sys.argv)
-
-    # Open the WAV file
-    wf = wave.open(wav_file_path, 'rb')
-    framerate = wf.getframerate()
-    sample_width = wf.getsampwidth()
-    channels = wf.getnchannels()
-
-    # Instantiate PyAudio
-    p = pyaudio.PyAudio()
-
-    # Open a stream
-    stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-                    channels=wf.getnchannels(),
-                    rate=wf.getframerate(),
-                    output=True)
-
-    # Read data in chunks
-    frames_for_fft = (1 / FFT_SAMPLING_RATE) / (1 / framerate)
-    frames_for_fft = next_divisible_by_32(frames_for_fft)
-    chunk_size = 4 * frames_for_fft
-
-    print('FFT rate (fps)', FFT_SAMPLING_RATE)
-    print('FFT frames', frames_for_fft, 'Audio frames', chunk_size)
-
-    audio_frames = wf.readframes(chunk_size)
     fft.init(fft_queue)
 
-    while audio_frames and not stop_event.is_set():
-        stream.write(audio_frames)
-        fft.analyze(audio_frames, frames_for_fft, framerate, sample_width, channels)
-        audio_frames = wf.readframes(chunk_size)
-
-    # Stop and close the stream
-    stream.stop_stream()
-    stream.close()
-
-    # Close PyAudio
-    p.terminate()
+    source = None
+    source_type = None
     
+    if args.file:
+        source = args.file
+        source_type = 'wav'
+    elif args.input_id:
+        source = args.input_id
+        source_type = 'stream'
+        
+    if source is None:
+        print("No audio source provided")
+        raise RuntimeError("No audio source provided")
 
+    # Open the audio source
+    samples_count, framerate, sample_width, channels, wav_generator = audio_source.open_audio(source, source_type, FFT_SAMPLING_RATE)
+    print("Samples count", samples_count)
+    print("Audio framerate", framerate)
+    print("Sample width", sample_width)
+    print("Channels", channels)
+    
+    # Read data
+    for data in wav_generator:
+        fft.analyze(data, samples_count, framerate, sample_width, channels)
+        if stop_event.is_set():
+            wav_generator.close()
+            break
+    
+    
 
 def rasterize(frames_queue):
     global last_fft, last_values
@@ -104,13 +88,29 @@ def rasterize(frames_queue):
         frames_queue.appendleft(pixels)
     
     
-print('Animation framerate (fps)', ANIMATION_FRAMERATE)
-screen.init(ANIMATION_FRAMERATE)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Audio visualizer demo. Provide either --file or --input-id')
+    parser.add_argument('--file', type=str, help='Path to the audio wav file')
+    parser.add_argument('--input-id', type=str, help='The id of the input device to capture. Use --list-inputs to list all available input devices')
+    parser.add_argument('--list-inputs', action='store_true', help='List all available input devices')
+    
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+        
+    args = parser.parse_args()
+    
+    if args.list_inputs:
+        audio_source.list_audio_input_devices()
+        exit(0)
+    
+    print('Animation framerate (fps)', ANIMATION_FRAMERATE)
+    screen.init(ANIMATION_FRAMERATE)
 
-thread = threading.Thread(target=audio_worker)
-thread.start()
+    thread = threading.Thread(target=audio_worker)
+    thread.start()
 
-try:
-    screen.mainloop(rasterize)
-finally:
-    stop_event.set()
+    try:
+        screen.mainloop(rasterize)
+    finally:
+        stop_event.set()
