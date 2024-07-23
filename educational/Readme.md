@@ -1,6 +1,6 @@
 This is a python demo I used to understand the concepts of FFT, animation and how it all ties together
 
-If you want to try it out, just add a wave file in this folder, rename it to 'sample.wav' and run 'demo.py'
+If you want to try it out, just add a wave file in this folder, rename it to 'sample.wav' and run 'main.py'
 
 Dependencies:
 
@@ -11,6 +11,11 @@ Dependencies:
 Install dependencies with:
 
     pip install --user -r requirements.txt
+    
+Run:
+
+    python main.py [/path/to/audio.wav]
+    
 
 
     

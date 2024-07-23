@@ -1,9 +1,14 @@
 import numpy as np
 import wave
 import matplotlib.pyplot as plt
+import sys
 
 # Open the WAV file
-file_path = 'sample.wav'
+try:
+    file_path = sys.argv[1]
+except:
+    file_path = 'wav/sample.wav'
+
 wav_file = wave.open(file_path, 'r')
 
 # Extract Raw Audio from Wav File

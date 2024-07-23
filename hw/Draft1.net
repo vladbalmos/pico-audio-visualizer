@@ -1,0 +1,16 @@
+* D:\hw\audio-visualizer\hw\Draft1.asc
+V1 N001 0 5
+R1 N002 N005 150
+D1 N005 0 L1C1-AMB1000000000
+V2 N003 0 0
+R2 N004 N003 1k
+Q1 N002 N004 0 0 NPN
+R3 N001 N002 150
+.model D D
+.lib C:\Users\vladb\AppData\Local\LTspice\lib\cmp\standard.dio
+.model NPN NPN
+.model PNP PNP
+.lib C:\Users\vladb\AppData\Local\LTspice\lib\cmp\standard.bjt
+.tran 0.5 startup
+.backanno
+.end

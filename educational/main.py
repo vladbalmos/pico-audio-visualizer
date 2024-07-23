@@ -151,11 +151,6 @@ def audio_worker():
     # Close PyAudio
     p.terminate()
     
-print('Animation framerate (fps)', ANIMATION_FRAMERATE)
-screen.init(ANIMATION_FRAMERATE)
-
-thread = threading.Thread(target=audio_worker)
-thread.start()
 
 def get_level(max_amp):
     if max_amp >= -1.5:
@@ -231,6 +226,12 @@ def rasterize(frames_queue):
         frames_queue.appendleft(pixels)
     
     
+print('Animation framerate (fps)', ANIMATION_FRAMERATE)
+screen.init(ANIMATION_FRAMERATE)
+
+thread = threading.Thread(target=audio_worker)
+thread.start()
+
 try:
     screen.mainloop(rasterize)
 finally:
