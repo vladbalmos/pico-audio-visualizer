@@ -126,7 +126,3 @@ def mainloop(rasterize_fn):
     # Quit Pygame
     pygame.quit()
     sys.exit()
-    
-if __name__ == '__main__':
-    init()
-    start()
