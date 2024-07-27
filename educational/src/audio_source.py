@@ -1,3 +1,4 @@
+import time
 import wave
 import pyaudio
 
@@ -9,6 +10,7 @@ def next_divisible_by_32(n):
         return int(n + (32 - remainder))
     
 def stream_generator(p, stream, chunk_size):
+    print(chunk_size)
     try:
         while True:
             data = stream.read(chunk_size)
@@ -84,7 +86,7 @@ def open_stream(source, chunk_size_factor):
 
     samples_count = (1 / chunk_size_factor) / (1 / framerate)
     samples_count = next_divisible_by_32(samples_count)
-    chunk_size = 4 * samples_count
+    chunk_size = 1 * samples_count
     
     stream = p.open(
         format = pyaudio.paInt16,

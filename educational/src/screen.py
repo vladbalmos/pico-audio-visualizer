@@ -105,7 +105,8 @@ def mainloop(rasterize_fn):
         except IndexError:
             clock.tick(framerate)
             continue
-            
+        
+        # print(pixels)
         # Clear the screen
         # screen.fill(black)
 

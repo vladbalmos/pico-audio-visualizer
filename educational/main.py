@@ -8,11 +8,12 @@ from src import screen
 from src import fft
 from src import animation_utils
 from src import audio_source
+from src import tcp_server
 from collections import deque
 
 MAX_AMPLITUDE = 100
 ANIMATION_FRAMERATE = 60
-FFT_SAMPLING_RATE = 60
+FFT_SAMPLING_RATE = 20
 
 fft_queue = queue.Queue()
 stop_event = threading.Event()
@@ -20,15 +21,8 @@ pixels_queue = deque()
 args = None
 
 last_fft = 0
+last_levels = None
 threshold = math.floor(1000 / FFT_SAMPLING_RATE) - 1
-
-
-def next_divisible_by_32(n):
-    remainder = n % 32
-    if remainder == 0:
-        return int(n + 32)
-    else:
-        return int(n + (32 - remainder))
 
 
 def audio_worker():
@@ -56,36 +50,69 @@ def audio_worker():
     print("Channels", channels)
     
     # Read data
+    last = time.time()
     for data in wav_generator:
+        # now = time.time()
+        # print((now - last) * 1000)
+        # last = now
+
         fft.analyze(data, samples_count, framerate, sample_width, channels)
         if stop_event.is_set():
             wav_generator.close()
             break
-    
-    
-
-def rasterize(frames_queue):
-    global last_fft, last_values
+        
+def interpolate(a, b, t):
+    return (1 - t) * a + t * b
+        
+def main(frames_queue):
+    global last_fft, last_levels
 
     now = time.time()
     diff = math.floor((now - last_fft) * 1000)
     values = None
     
-    if diff >= threshold:
-        last_fft = now
-        try:
-            values = fft_queue.get(block=True, timeout=0.5)
-        except:
-            print("No more audio. Exiting!")
-            sys.exit(0)
-
-         
+    # if diff >= (threshold - 5):
+    last_fft = now
+    try:
+        values = fft_queue.get_nowait()
+        # tcp_server.data_queue.put(values)
+    except queue.Empty:
+        return
+    except:
+        print("No more audio. Exiting!")
+        sys.exit(0)
+        
+    if last_levels is None:
+        last_levels = [-1] * len(values)
+    
+    current_levels = []
+    for max_amp in values:
+        current_levels.append(animation_utils.get_level(max_amp))
+        
+    num_frames = ANIMATION_FRAMERATE // FFT_SAMPLING_RATE
+    frames = []
+    for i in range(num_frames):
+        t = i / (num_frames - 1)
+        interpolated_frame = [interpolate(last_levels[i], current_levels[i], t) for i in range(len(last_levels))] 
+        frames.append(interpolated_frame)
+        
+    last_levels = current_levels
+        
+    for frame in frames:
         pixels = []
-        for i, max_amp in enumerate(values):
-            level = animation_utils.get_level(max_amp)
-            pixels.append(animation_utils.level_to_pixels(level))
+        for level in frame:
+            pixels.append(animation_utils.level_to_pixels(round(level)))
             
         frames_queue.appendleft(pixels)
+        
+        
+    # pixels = []
+    # for max_amp in values:
+    #     level = animation_utils.get_level(max_amp)
+    #     frame = animation_utils.level_to_pixels(level)
+    #     pixels.append(frame)
+        
+    # frames_queue.appendleft(pixels)
     
     
 if __name__ == '__main__':
@@ -109,8 +136,13 @@ if __name__ == '__main__':
 
     thread = threading.Thread(target=audio_worker)
     thread.start()
+    
+    # tcp_server.start(ANIMATION_FRAMERATE, len(fft.frequency_bands))
 
     try:
-        screen.mainloop(rasterize)
+        screen.mainloop(main)
+    except KeyboardInterrupt:
+        exit(0)
     finally:
         stop_event.set()
+        # tcp_server.stop()
