@@ -67,12 +67,8 @@ def interpolate(a, b, t):
 def main(frames_queue):
     global last_fft, last_levels
 
-    now = time.time()
-    diff = math.floor((now - last_fft) * 1000)
     values = None
     
-    # if diff >= (threshold - 5):
-    last_fft = now
     try:
         values = fft_queue.get_nowait()
         # tcp_server.data_queue.put(values)
